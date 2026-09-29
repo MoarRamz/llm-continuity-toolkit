@@ -45,6 +45,7 @@ jobs:
             $contentHits | ForEach-Object { Write-Host $_ }
             throw 'Forbidden legacy identity sequence detected in tracked repository content.'
           }
+          $global:LASTEXITCODE = 0
           Write-Host 'Repository identity sanitation passed.'
 
       - name: Enforce offline security architecture
