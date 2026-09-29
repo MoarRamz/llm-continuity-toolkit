@@ -1,8 +1,8 @@
 using System.Diagnostics;
 using System.Windows;
-using GPTConversationSplitter.Core;
+using LLMContinuityToolkit.Core;
 
-namespace GPTConversationSplitter.App;
+namespace LLMContinuityToolkit.App;
 
 public partial class ExportSuccessWindow : Window
 {
@@ -12,7 +12,7 @@ public partial class ExportSuccessWindow : Window
     {
         InitializeComponent();
         _result = result;
-        var continuation = result.Format == ExportFormat.GptContinuationMarkdown;
+        var continuation = result.Format == ExportFormat.ContinuationMarkdown;
         Headline.Text = continuation
             ? result.IsBundle ? "Your continuation archive is ready" : "Your Continuation Markdown file is ready"
             : result.IsBundle ? "Your export archive is ready" : "Export complete";
@@ -25,7 +25,7 @@ public partial class ExportSuccessWindow : Window
         AttachmentSummary.Visibility = continuation ? Visibility.Visible : Visibility.Collapsed;
         PathText.Text = result.OutputPath;
         HelpText.Text = result.IsBundle
-            ? "Open the folder to upload the ZIP archive directly into ChatGPT or move it as one self-contained package."
+            ? "Open the folder to upload the ZIP archive directly into OpenAI account or move it as one self-contained package."
             : "Open the folder to use the exported file.";
         CopyPromptButton.Visibility = continuation ? Visibility.Visible : Visibility.Collapsed;
     }

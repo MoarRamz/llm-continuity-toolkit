@@ -4,10 +4,10 @@ using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
-using GPTConversationSplitter.Core;
+using LLMContinuityToolkit.Core;
 using Microsoft.Win32;
 
-namespace GPTConversationSplitter.App;
+namespace LLMContinuityToolkit.App;
 
 public partial class MainWindow : Window
 {
@@ -45,8 +45,8 @@ public partial class MainWindow : Window
         if (_busy) return;
         var dialog = new OpenFileDialog
         {
-            Title = "Select ChatGPT Data Export",
-            Filter = "ChatGPT export (*.zip)|*.zip|Conversation JSON (*.json)|*.json|All files (*.*)|*.*",
+            Title = "Select OpenAI account Data Export",
+            Filter = "OpenAI account export (*.zip)|*.zip|Conversation JSON (*.json)|*.json|All files (*.*)|*.*",
             CheckFileExists = true
         };
         if (dialog.ShowDialog(this) != true) return;
@@ -147,7 +147,7 @@ public partial class MainWindow : Window
             else
             {
                 if (string.IsNullOrWhiteSpace(_sourcePath))
-                    throw new InvalidOperationException("The original ChatGPT export is required to reconstruct selected transcripts.");
+                    throw new InvalidOperationException("The original OpenAI account export is required to reconstruct selected transcripts.");
 
                 StatusText.Text = $"Reconstructing {selectedMetadata.Length} selected transcript(s)...";
                 var store = new LazyConversationStore(_activity);
@@ -287,7 +287,7 @@ public partial class MainWindow : Window
         _sourcePath = null;
         SearchBox.Clear();
         ImportHeadline.Text = "No export loaded";
-        ImportDetail.Text = "Choose the ZIP file supplied by ChatGPT Data Export.";
+        ImportDetail.Text = "Choose the ZIP file supplied by OpenAI account Data Export.";
     }
 
     private void CompactMemoryBoundary(string label)

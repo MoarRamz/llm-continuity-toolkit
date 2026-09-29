@@ -1,5 +1,0 @@
-<Solution>
-  <Project Path="src/GPTConversationSplitter.Core/GPTConversationSplitter.Core.csproj" />
-  <Project Path="src/GPTConversationSplitter.App/GPTConversationSplitter.App.csproj" />
-  <Project Path="tests/GPTConversationSplitter.RegressionTests/GPTConversationSplitter.RegressionTests.csproj" />
-</Solution>

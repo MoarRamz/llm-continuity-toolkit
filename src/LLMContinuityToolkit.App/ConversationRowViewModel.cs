@@ -1,7 +1,7 @@
 using System.ComponentModel;
-using GPTConversationSplitter.Core;
+using LLMContinuityToolkit.Core;
 
-namespace GPTConversationSplitter.App;
+namespace LLMContinuityToolkit.App;
 
 public sealed class ConversationRowViewModel : INotifyPropertyChanged
 {

@@ -1,8 +1,8 @@
 using System.Text;
-using GPTConversationSplitter.Core;
+using LLMContinuityToolkit.Core;
 using Microsoft.Win32;
 
-namespace GPTConversationSplitter.App;
+namespace LLMContinuityToolkit.App;
 
 public partial class MainWindow
 {

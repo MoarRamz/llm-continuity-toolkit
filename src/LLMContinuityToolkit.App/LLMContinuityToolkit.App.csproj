@@ -6,11 +6,11 @@
     <ApplicationIcon>Assets\LLM_Continuity_Toolkit.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AssemblyName>LLM Continuity Toolkit</AssemblyName>
-    <RootNamespace>GPTConversationSplitter.App</RootNamespace>
+    <RootNamespace>LLMContinuityToolkit.App</RootNamespace>
     <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\GPTConversationSplitter.Core\GPTConversationSplitter.Core.csproj" />
+    <ProjectReference Include="..\LLMContinuityToolkit.Core\LLMContinuityToolkit.Core.csproj" />
     <Resource Include="Assets\LLM_Continuity_Toolkit.ico" />
   </ItemGroup>
 </Project>
