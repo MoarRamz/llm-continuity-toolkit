@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="src/LLMContinuityToolkit.Core/LLMContinuityToolkit.Core.csproj" />
+  <Project Path="src/LLMContinuityToolkit.App/LLMContinuityToolkit.App.csproj" />
+  <Project Path="tests/LLMContinuityToolkit.RegressionTests/LLMContinuityToolkit.RegressionTests.csproj" />
+</Solution>
