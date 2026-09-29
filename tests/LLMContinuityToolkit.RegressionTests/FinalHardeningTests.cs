@@ -1,7 +1,7 @@
 using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
-using GPTConversationSplitter.Core;
+using LLMContinuityToolkit.Core;
 
 internal static class FinalHardeningTests
 {
@@ -25,7 +25,7 @@ internal static class FinalHardeningTests
         Require(FileNameUtil.SafeFileName("Unicode ✓ 漢字 😀").Contains("漢字", StringComparison.Ordinal), "Valid Unicode was unnecessarily removed from a filename.");
         Require(FileNameUtil.SafeFileName(new string('x', 500)).Length <= 120, "Filename length limit was not enforced.");
 
-        var root = Path.Combine(Path.GetTempPath(), "gpt-splitter-filename-" + Guid.NewGuid().ToString("N"));
+        var root = Path.Combine(Path.GetTempPath(), "llm-continuity-filename-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         try
         {
@@ -55,7 +55,7 @@ internal static class FinalHardeningTests
             await ExpectInvalidDataAsync(
                 () => new ChatExportReader(new ActivitySink()).ReadMetadataAsync(path, cancellationToken: token),
                 "Duplicate conversation IDs were accepted.",
-                "Duplicate ChatGPT conversation ID");
+                "Duplicate OpenAI account conversation ID");
         }
         finally { TryDelete(root); }
     }
@@ -100,7 +100,7 @@ internal static class FinalHardeningTests
             await ExpectInvalidDataAsync(
                 () => new ExportService(new ActivitySink()).ExportAsync(new[] { metadata }, ExportFormat.Markdown, destination, path, cancellationToken: token),
                 "Readable export accepted unsupported active visible content.",
-                "unsupported ChatGPT content type");
+                "unsupported OpenAI account content type");
 
             var raw = await new ExportService(new ActivitySink()).ExportAsync(new[] { metadata }, ExportFormat.CompleteJson, destination, path, cancellationToken: token);
             Require(File.Exists(raw.OutputPath), "Complete JSON did not preserve an unsupported future raw record.");
@@ -268,7 +268,7 @@ internal static class FinalHardeningTests
 
     private static string NewRoot(string name)
     {
-        var root = Path.Combine(Path.GetTempPath(), $"gpt-splitter-final-{name}-{Guid.NewGuid():N}");
+        var root = Path.Combine(Path.GetTempPath(), $"llm-continuity-final-{name}-{Guid.NewGuid():N}");
         Directory.CreateDirectory(root);
         return root;
     }

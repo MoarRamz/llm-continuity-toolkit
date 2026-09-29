@@ -1,10 +1,10 @@
 using System.Text.RegularExpressions;
-using GPTConversationSplitter.Core;
+using LLMContinuityToolkit.Core;
 
 if (args.Length != 2)
 {
-    Console.Error.WriteLine("Usage: GPTConversationSplitter.ParityAudit <current-export.zip|json> <reference-activity-log.txt>");
-    Console.Error.WriteLine("The reference log should be from a known-good LLM Continuity Toolkit run or a compatible legacy GPT Conversation Splitter run and is never uploaded by this tool.");
+    Console.Error.WriteLine("Usage: LLMContinuityToolkit.ParityAudit <current-export.zip|json> <reference-activity-log.txt>");
+    Console.Error.WriteLine("The reference log should be from a known-good LLM Continuity Toolkit run or a compatible legacy LLM Continuity Toolkit run and is never uploaded by this tool.");
     return 2;
 }
 

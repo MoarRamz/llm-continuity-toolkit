@@ -3,7 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using GPTConversationSplitter.Core;
+using LLMContinuityToolkit.Core;
 
 var failures = new List<string>();
 await RunAsync("streaming fingerprints preserve v2.1 canonical contract", TestFingerprintCompatibilityAsync);
@@ -16,7 +16,7 @@ await RunAsync("cancelled raw bundle leaves no destination output", TestRawCance
 if (failures.Count != 0)
 {
     Console.Error.WriteLine();
-    Console.Error.WriteLine("V2.2 OPTIMIZATION REGRESSION FAILURES");
+    Console.Error.WriteLine("ARCHITECTURE OPTIMIZATION REGRESSION FAILURES");
     foreach (var failure in failures)
         Console.Error.WriteLine(" - " + failure);
     Environment.ExitCode = 1;
@@ -24,7 +24,7 @@ if (failures.Count != 0)
 else
 {
     Console.WriteLine();
-    Console.WriteLine("All v2.2 optimization regressions passed.");
+    Console.WriteLine("All architecture optimization regressions passed.");
 }
 
 async Task RunAsync(string name, Func<Task> test)
@@ -43,7 +43,7 @@ async Task RunAsync(string name, Func<Task> test)
 
 async Task TestFingerprintCompatibilityAsync()
 {
-    using var fixture = await V22Fixture.CreateAsync();
+    using var fixture = await ArchitectureFixture.CreateAsync();
     var store = new LazyConversationStore(new ActivitySink());
     var indexed = await store.ReadMetadataAsync(fixture.ZipPath);
 
@@ -61,7 +61,7 @@ async Task TestFingerprintCompatibilityAsync()
 
 async Task TestMetadataParityAsync()
 {
-    using var fixture = await V22Fixture.CreateAsync();
+    using var fixture = await ArchitectureFixture.CreateAsync();
     var activity = new ActivitySink();
     var eager = await new ChatExportReader(activity).ReadAsync(fixture.ZipPath);
     var store = new LazyConversationStore(activity);
@@ -94,7 +94,7 @@ async Task TestMetadataParityAsync()
 
 async Task TestSingleRawExportAsync()
 {
-    using var fixture = await V22Fixture.CreateAsync();
+    using var fixture = await ArchitectureFixture.CreateAsync();
     var activity = new ActivitySink();
     var indexed = await new LazyConversationStore(activity).ReadMetadataAsync(fixture.ZipPath);
     var row = indexed.Conversations.Single(record => record.Id == "conv-a");
@@ -113,7 +113,7 @@ async Task TestSingleRawExportAsync()
 
 async Task TestBatchRawExportAsync()
 {
-    using var fixture = await V22Fixture.CreateAsync();
+    using var fixture = await ArchitectureFixture.CreateAsync();
     var activity = new ActivitySink();
     var events = new List<ActivityEvent>();
     activity.Activity += (_, item) => events.Add(item);
@@ -144,7 +144,7 @@ async Task TestBatchRawExportAsync()
 
 async Task TestRawMutationAsync()
 {
-    using var fixture = await V22Fixture.CreateAsync();
+    using var fixture = await ArchitectureFixture.CreateAsync();
     var activity = new ActivitySink();
     var store = new LazyConversationStore(activity);
     var indexed = await store.ReadMetadataAsync(fixture.JsonPath);
@@ -170,7 +170,7 @@ async Task TestRawMutationAsync()
 
 async Task TestRawCancellationAsync()
 {
-    using var fixture = await V22Fixture.CreateAsync();
+    using var fixture = await ArchitectureFixture.CreateAsync();
     var activity = new ActivitySink();
     var indexed = await new LazyConversationStore(activity).ReadMetadataAsync(fixture.ZipPath);
     var folder = Path.Combine(fixture.Root, "cancelled-raw");
@@ -196,15 +196,15 @@ static void Assert(bool condition, string message)
         throw new Exception(message);
 }
 
-sealed class V22Fixture : IDisposable
+sealed class ArchitectureFixture : IDisposable
 {
     public required string Root { get; init; }
     public required string JsonPath { get; init; }
     public required string ZipPath { get; init; }
 
-    public static async Task<V22Fixture> CreateAsync()
+    public static async Task<ArchitectureFixture> CreateAsync()
     {
-        var root = Path.Combine(Path.GetTempPath(), "gpt-splitter-v22-" + Guid.NewGuid().ToString("N"));
+        var root = Path.Combine(Path.GetTempPath(), "llm-continuity-architecture-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         var jsonPath = Path.Combine(root, "conversations.json");
         var payload = new[]
@@ -216,7 +216,7 @@ sealed class V22Fixture : IDisposable
         var zipPath = Path.Combine(root, "export.zip");
         using (var archive = ZipFile.Open(zipPath, ZipArchiveMode.Create))
             archive.CreateEntryFromFile(jsonPath, "conversations.json", CompressionLevel.Optimal);
-        return new V22Fixture { Root = root, JsonPath = jsonPath, ZipPath = zipPath };
+        return new ArchitectureFixture { Root = root, JsonPath = jsonPath, ZipPath = zipPath };
     }
 
     private static object BuildConversation(string id, string title, long timestamp, string answer)

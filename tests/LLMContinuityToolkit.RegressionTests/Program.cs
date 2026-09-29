@@ -1,7 +1,7 @@
 using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
-using GPTConversationSplitter.Core;
+using LLMContinuityToolkit.Core;
 
 var failures = new List<string>();
 await RunAsync("active path, visibility filters, attachments, reasoning recaps", TestParserAsync);
@@ -76,7 +76,7 @@ async Task TestLazyStoreAsync()
     using var fixture = await SyntheticFixture.CreateAsync();
     var activity = new ActivitySink();
     var eager = await new ChatExportReader(activity).ReadAsync(fixture.ZipPath);
-    var beforeTemps = Directory.EnumerateFiles(Path.GetTempPath(), "gpt-splitter-hydrate-*.json")
+    var beforeTemps = Directory.EnumerateFiles(Path.GetTempPath(), "llm-continuity-hydrate-*.json")
         .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
     var store = new LazyConversationStore(activity);
@@ -144,7 +144,7 @@ async Task TestLazyStoreAsync()
         Assert(ex.Message.Contains("may have changed", StringComparison.OrdinalIgnoreCase), "Source-mutation failure did not explain the integrity mismatch.");
     }
 
-    var afterTemps = Directory.EnumerateFiles(Path.GetTempPath(), "gpt-splitter-hydrate-*.json")
+    var afterTemps = Directory.EnumerateFiles(Path.GetTempPath(), "llm-continuity-hydrate-*.json")
         .ToHashSet(StringComparer.OrdinalIgnoreCase);
     afterTemps.ExceptWith(beforeTemps);
     Assert(afterTemps.Count == 0, "Lazy hydration left a private staging file behind.");
@@ -160,7 +160,7 @@ async Task TestBundleAsync()
     Directory.CreateDirectory(folder);
 
     var exporter = new ExportService(activity);
-    var result = await exporter.ExportAsync(imported.Conversations, ExportFormat.GptContinuationMarkdown, folder, fixture.ZipPath);
+    var result = await exporter.ExportAsync(imported.Conversations, ExportFormat.ContinuationMarkdown, folder, fixture.ZipPath);
     Assert(result.IsBundle, "Multi-conversation continuation export should be a ZIP bundle.");
     Assert(result.VerifiedCount == 2, "Both continuation files should verify.");
     var prompt = result.ContinuationPrompt ?? throw new Exception("Bundle continuation prompt was null.");
@@ -222,7 +222,7 @@ sealed class SyntheticFixture : IDisposable
 
     public static async Task<SyntheticFixture> CreateAsync()
     {
-        var root = Path.Combine(Path.GetTempPath(), "gpt-splitter-regression-" + Guid.NewGuid().ToString("N"));
+        var root = Path.Combine(Path.GetTempPath(), "llm-continuity-regression-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         var jsonPath = Path.Combine(root, "conversations.json");
         var conversations = new[]
@@ -291,7 +291,7 @@ sealed class SyntheticFixture : IDisposable
             create_time = time,
             recipient = (string?)null,
             channel = (string?)null,
-            metadata = new { model_slug = "gpt-5-6-thinking", attachments = Array.Empty<object>() },
+            metadata = new { model_slug = "llm-5-6-thinking", attachments = Array.Empty<object>() },
             content = new { content_type = "reasoning_recap", content = text }
         };
 

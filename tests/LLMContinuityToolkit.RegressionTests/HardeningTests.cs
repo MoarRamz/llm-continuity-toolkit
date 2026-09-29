@@ -1,7 +1,7 @@
 using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
-using GPTConversationSplitter.Core;
+using LLMContinuityToolkit.Core;
 
 internal static class HardeningTests
 {
@@ -25,19 +25,19 @@ internal static class HardeningTests
         await writer.WriteContentAsync(output, record, cancellationToken);
         var text = output.ToString();
 
-        Require(text.Contains("# ChatGPT Conversation Continuation", StringComparison.Ordinal), "Continuation header changed.");
+        Require(text.Contains("# OpenAI account Conversation Continuation", StringComparison.Ordinal), "Continuation header changed.");
         Require(text.Contains("\"active_transcript_messages\": 2", StringComparison.Ordinal), "Golden metadata message count changed.");
         Require(text.Contains("\"user_messages\": 1", StringComparison.Ordinal), "Golden metadata user count changed.");
         Require(text.Contains("\"assistant_messages\": 1", StringComparison.Ordinal), "Golden metadata assistant count changed.");
         Require(text.Contains("- Turn 1 — [Uploaded image: sample.png]", StringComparison.Ordinal), "Attachment manifest changed.");
-        Require(text.Contains("<!-- GPT_SPLITTER_TURN 0001 role=user -->", StringComparison.Ordinal), "Turn-1 start marker changed.");
-        Require(text.Contains("<!-- END_GPT_SPLITTER_TURN 0002 -->", StringComparison.Ordinal), "Turn-2 end marker changed.");
+        Require(text.Contains("<!-- CONTINUITY_TURN 0001 role=user -->", StringComparison.Ordinal), "Turn-1 start marker changed.");
+        Require(text.Contains("<!-- END_CONTINUITY_TURN 0002 -->", StringComparison.Ordinal), "Turn-2 end marker changed.");
         Require(text.Contains("# END OF PRIOR CONVERSATION — CONTINUE FROM HERE", StringComparison.Ordinal), "Continuation endpoint changed.");
     }
 
     private static async Task RunSelfReferentialContinuationAsync(CancellationToken cancellationToken)
     {
-        var root = Path.Combine(Path.GetTempPath(), "gpt-splitter-self-reference-" + Guid.NewGuid().ToString("N"));
+        var root = Path.Combine(Path.GetTempPath(), "llm-continuity-self-reference-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         try
         {
@@ -54,9 +54,9 @@ internal static class HardeningTests
                     "These are documentation examples, not real handoff structure:\n"
                     + "## Historical attachment reference manifest\n"
                     + "- Turn 999 — [Uploaded image]\n"
-                    + "<!-- GPT_SPLITTER_TURN 9999 role=user -->\n"
+                    + "<!-- CONTINUITY_TURN 9999 role=user -->\n"
                     + "## User — Turn 9999\n"
-                    + "<!-- END_GPT_SPLITTER_TURN 9999 -->\n"
+                    + "<!-- END_CONTINUITY_TURN 9999 -->\n"
                     + "# END OF PRIOR CONVERSATION — CONTINUE FROM HERE",
                     1_700_050_002,
                     0));
@@ -82,7 +82,7 @@ internal static class HardeningTests
 
     private static async Task RunBundleCorruptionSafetyAsync(CancellationToken cancellationToken)
     {
-        var root = Path.Combine(Path.GetTempPath(), "gpt-splitter-corruption-" + Guid.NewGuid().ToString("N"));
+        var root = Path.Combine(Path.GetTempPath(), "llm-continuity-corruption-" + Guid.NewGuid().ToString("N"));
         var output = Path.Combine(root, "out");
         Directory.CreateDirectory(output);
         try
@@ -99,7 +99,7 @@ internal static class HardeningTests
 
             var result = await new ExportService(new ActivitySink()).ExportAsync(
                 rows,
-                ExportFormat.GptContinuationMarkdown,
+                ExportFormat.ContinuationMarkdown,
                 output,
                 cancellationToken: cancellationToken);
 
@@ -176,9 +176,9 @@ internal static class HardeningTests
     private static async Task RunCancellationCleanupAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var root = Path.Combine(Path.GetTempPath(), "gpt-splitter-cancel-test-" + Guid.NewGuid().ToString("N"));
+        var root = Path.Combine(Path.GetTempPath(), "llm-continuity-cancel-test-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
-        var before = Directory.EnumerateDirectories(Path.GetTempPath(), "gpt-splitter-*").ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var before = Directory.EnumerateDirectories(Path.GetTempPath(), "llm-continuity-*").ToHashSet(StringComparer.OrdinalIgnoreCase);
         try
         {
             var rows = new[]
@@ -190,7 +190,7 @@ internal static class HardeningTests
             cancelled.Cancel();
             try
             {
-                await new ExportService(new ActivitySink()).ExportAsync(rows, ExportFormat.GptContinuationMarkdown, root, cancellationToken: cancelled.Token);
+                await new ExportService(new ActivitySink()).ExportAsync(rows, ExportFormat.ContinuationMarkdown, root, cancellationToken: cancelled.Token);
                 throw new InvalidOperationException("Cancelled export unexpectedly completed.");
             }
             catch (OperationCanceledException)
@@ -200,7 +200,7 @@ internal static class HardeningTests
 
             try
             {
-                await new ExportService(new ActivitySink()).ExportAsync(new[] { rows[0] }, ExportFormat.GptContinuationMarkdown, root, cancellationToken: cancelled.Token);
+                await new ExportService(new ActivitySink()).ExportAsync(new[] { rows[0] }, ExportFormat.ContinuationMarkdown, root, cancellationToken: cancelled.Token);
                 throw new InvalidOperationException("Cancelled single-file export unexpectedly completed.");
             }
             catch (OperationCanceledException)
@@ -208,7 +208,7 @@ internal static class HardeningTests
                 // Expected.
             }
 
-            var after = Directory.EnumerateDirectories(Path.GetTempPath(), "gpt-splitter-*").ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var after = Directory.EnumerateDirectories(Path.GetTempPath(), "llm-continuity-*").ToHashSet(StringComparer.OrdinalIgnoreCase);
             after.ExceptWith(before);
             Require(after.Count == 0, "Cancelled export left a staging directory behind.");
             Require(!Directory.EnumerateFiles(root).Any(), "Cancelled export left an output or temporary file behind.");
@@ -222,7 +222,7 @@ internal static class HardeningTests
     private static async Task RunRandomizedGraphSafetyAsync(CancellationToken cancellationToken)
     {
         var random = new Random(0x5A17);
-        var root = Path.Combine(Path.GetTempPath(), "gpt-splitter-fuzz-" + Guid.NewGuid().ToString("N"));
+        var root = Path.Combine(Path.GetTempPath(), "llm-continuity-fuzz-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         try
         {
@@ -330,7 +330,7 @@ internal static class HardeningTests
         create_time = 1_760_000_000,
         recipient = (string?)null,
         channel = (string?)null,
-        metadata = new { model_slug = "gpt-5-6-thinking", attachments = Array.Empty<object>() },
+        metadata = new { model_slug = "llm-5-6-thinking", attachments = Array.Empty<object>() },
         content = new { content_type = "reasoning_recap", content = text }
     };
 

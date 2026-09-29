@@ -1,8 +1,8 @@
 $ErrorActionPreference = 'Stop'
 
 $sourceRoots = @(
-    'src/GPTConversationSplitter.Core',
-    'src/GPTConversationSplitter.App'
+    'src/LLMContinuityToolkit.Core',
+    'src/LLMContinuityToolkit.App'
 )
 
 $forbidden = [ordered]@{
@@ -39,7 +39,7 @@ foreach ($file in $files) {
 
     if ($content -match '\bProcess\.Start\s*\(') {
         $relative = [IO.Path]::GetRelativePath((Get-Location).Path, $file.FullName).Replace('\', '/')
-        $allowedFile = 'src/GPTConversationSplitter.App/ExportSuccessWindow.xaml.cs'
+        $allowedFile = 'src/LLMContinuityToolkit.App/ExportSuccessWindow.xaml.cs'
         $allowedExplorerLaunch = 'Process\.Start\s*\(\s*new\s+ProcessStartInfo\s*\(\s*"explorer\.exe"'
         if ($relative -ne $allowedFile -or $content -notmatch $allowedExplorerLaunch) {
             $violations += "$($file.FullName): child-process launch is not the allowlisted Explorer Open Folder action."
@@ -47,7 +47,7 @@ foreach ($file in $files) {
     }
 }
 
-$manifest = 'src/GPTConversationSplitter.App/app.manifest'
+$manifest = 'src/LLMContinuityToolkit.App/app.manifest'
 if (-not (Test-Path $manifest)) {
     $violations += 'Windows application manifest is missing.'
 }

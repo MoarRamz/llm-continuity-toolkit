@@ -1,7 +1,7 @@
 using System.Runtime.CompilerServices;
-using GPTConversationSplitter.Core;
+using LLMContinuityToolkit.Core;
 
-internal static class V23RegressionGuards
+internal static class ReleaseRegressionGuards
 {
     [ModuleInitializer]
     internal static void Run()
@@ -27,9 +27,9 @@ internal static class V23RegressionGuards
 
         // Simulate a partially indexed import that later fails and therefore never populates UI rows.
         // ActivitySink.Write must register sensitivity before it publishes each event.
-        sink.Write("IMPORT", $"Opening ChatGPT export: {sourceFile}");
+        sink.Write("IMPORT", $"Opening OpenAI account export: {sourceFile}");
         sink.Write("INDEX", $"1  {title} — 42 visible messages");
-        sink.Write("COMPAT", $"Duplicate ChatGPT conversation ID '{id}' was found. Import stopped because later lazy hydration would be ambiguous.", ActivityLevel.Error);
+        sink.Write("COMPAT", $"Duplicate OpenAI account conversation ID '{id}' was found. Import stopped because later lazy hydration would be ambiguous.", ActivityLevel.Error);
         sink.Write("PERF", "Transcript indexing completed in 1.23 s", ActivityLevel.Performance);
 
         var sensitive = sink.GetSensitiveSnapshot();
@@ -67,7 +67,7 @@ internal static class V23RegressionGuards
             try
             {
                 new ExportService(new ActivitySink())
-                    .ExportAsync(rows, ExportFormat.GptContinuationMarkdown, output, cancellationToken: cancelled.Token)
+                    .ExportAsync(rows, ExportFormat.ContinuationMarkdown, output, cancellationToken: cancelled.Token)
                     .GetAwaiter().GetResult();
                 throw new InvalidOperationException("Cancelled v2.3 bundle export unexpectedly completed.");
             }
