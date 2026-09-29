@@ -232,11 +232,11 @@ jobs:
           } | Set-Content artifacts/reports/SHA256SUMS.txt
           Get-Content artifacts/reports/SHA256SUMS.txt
 
-      - name: Generate optimization validation provenance
+      - name: Generate architecture validation provenance
         shell: pwsh
         run: |
           @(
-            'LLM Continuity Toolkit architecture optimization validation provenance'
+            'LLM Continuity Toolkit architecture validation provenance'
             "Commit: $env:GITHUB_SHA"
             "Branch/ref: $env:GITHUB_REF"
             'Runtime: win-x64'
@@ -258,25 +258,25 @@ jobs:
           ) | Set-Content artifacts/reports/BUILD_PROVENANCE.txt
           Get-Content artifacts/reports/BUILD_PROVENANCE.txt
 
-      - name: Package optimization validation
+      - name: Package architecture validation
         shell: pwsh
         run: |
           $release = 'artifacts/release/LLM Continuity Toolkit'
           New-Item -ItemType Directory -Force $release | Out-Null
           Copy-Item artifacts/validation-compressed/* $release -Force
-          Compress-Archive -Path 'artifacts/release/LLM Continuity Toolkit' -DestinationPath artifacts/LLM_Continuity_Toolkit_current_Optimization_Validation_Windows_Portable.zip -CompressionLevel Optimal
+          Compress-Archive -Path 'artifacts/release/LLM Continuity Toolkit' -DestinationPath artifacts/LLM_Continuity_Toolkit_Architecture_Validation_Windows_Portable.zip -CompressionLevel Optimal
 
-      - name: Generate optimization validation package SHA-256
+      - name: Generate architecture validation package SHA-256
         shell: pwsh
         run: |
-          $hash = Get-FileHash artifacts/LLM_Continuity_Toolkit_current_Optimization_Validation_Windows_Portable.zip -Algorithm SHA256
-          "$($hash.Hash.ToLowerInvariant())  LLM_Continuity_Toolkit_current_Optimization_Validation_Windows_Portable.zip" | Set-Content artifacts/reports/PACKAGE_SHA256.txt
+          $hash = Get-FileHash artifacts/LLM_Continuity_Toolkit_Architecture_Validation_Windows_Portable.zip -Algorithm SHA256
+          "$($hash.Hash.ToLowerInvariant())  LLM_Continuity_Toolkit_Architecture_Validation_Windows_Portable.zip" | Set-Content artifacts/reports/PACKAGE_SHA256.txt
           Get-Content artifacts/reports/PACKAGE_SHA256.txt
 
-      - name: Upload architecture validation validation
+      - name: Upload architecture validation
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: LLM-Continuity-Toolkit-Architecture-Validation
-          path: artifacts/LLM_Continuity_Toolkit_current_Optimization_Validation_Windows_Portable.zip
+          path: artifacts/LLM_Continuity_Toolkit_Architecture_Validation_Windows_Portable.zip
           if-no-files-found: error
           compression-level: 0
