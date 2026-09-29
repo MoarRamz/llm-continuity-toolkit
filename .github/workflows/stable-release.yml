@@ -63,29 +63,43 @@ jobs:
           if ($actual -ne '10.0.302') { throw "Expected .NET SDK 10.0.302, got $actual" }
           dotnet --info
 
+      - name: Enforce repository identity sanitation
+        shell: pwsh
+        run: |
+          $needle = -join ([char]0x67,[char]0x70,[char]0x74)
+          $pathHits = @(git ls-files | Select-String -Pattern $needle -CaseSensitive:$false)
+          $contentHits = @(git grep -n -I -i -e $needle -- . 2>$null)
+          if ($LASTEXITCODE -notin @(0,1)) { throw 'Repository content scan failed.' }
+          if ($pathHits.Count -gt 0 -or $contentHits.Count -gt 0) {
+            $pathHits | ForEach-Object { Write-Host $_ }
+            $contentHits | ForEach-Object { Write-Host $_ }
+            throw 'Forbidden legacy identity sequence detected in tracked repository content.'
+          }
+          Write-Host 'Repository identity sanitation passed.'
+
       - name: Enforce offline security architecture
         shell: pwsh
         run: ./tools/security/Assert-OfflineArchitecture.ps1
 
       - name: Build core
-        run: dotnet build src/GPTConversationSplitter.Core/GPTConversationSplitter.Core.csproj -c Release
+        run: dotnet build src/LLMContinuityToolkit.Core/LLMContinuityToolkit.Core.csproj -c Release
 
       - name: Run established regression suite
-        run: dotnet run --project tests/GPTConversationSplitter.RegressionTests/GPTConversationSplitter.RegressionTests.csproj -c Release
+        run: dotnet run --project tests/LLMContinuityToolkit.RegressionTests/LLMContinuityToolkit.RegressionTests.csproj -c Release
 
-      - name: Run v2.2 architecture regression suite
-        run: dotnet run --project tests/GPTConversationSplitter.V22Tests/GPTConversationSplitter.V22Tests.csproj -c Release
+      - name: Run architecture regression suite
+        run: dotnet run --project tests/LLMContinuityToolkit.ArchitectureTests/LLMContinuityToolkit.ArchitectureTests.csproj -c Release
 
       - name: Build WPF application
-        run: dotnet build src/GPTConversationSplitter.App/GPTConversationSplitter.App.csproj -c Release
+        run: dotnet build src/LLMContinuityToolkit.App/LLMContinuityToolkit.App.csproj -c Release
 
       - name: Publish stable portable build A
         run: >-
-          dotnet publish src/GPTConversationSplitter.App/GPTConversationSplitter.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=false -p:EnableCompressionInSingleFile=true -p:PublishReadyToRun=false -p:PublishTrimmed=false -o artifacts/portable
+          dotnet publish src/LLMContinuityToolkit.App/LLMContinuityToolkit.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=false -p:EnableCompressionInSingleFile=true -p:PublishReadyToRun=false -p:PublishTrimmed=false -o artifacts/portable
 
       - name: Publish stable portable build B
         run: >-
-          dotnet publish src/GPTConversationSplitter.App/GPTConversationSplitter.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=false -p:EnableCompressionInSingleFile=true -p:PublishReadyToRun=false -p:PublishTrimmed=false -o artifacts/portable-repro
+          dotnet publish src/LLMContinuityToolkit.App/LLMContinuityToolkit.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=false -p:EnableCompressionInSingleFile=true -p:PublishReadyToRun=false -p:PublishTrimmed=false -o artifacts/portable-repro
 
       - name: Remove debug symbols
         shell: pwsh
@@ -265,7 +279,7 @@ jobs:
             'Tag/source version parity: PASS'
             'Offline architecture guard: PASS'
             'Established regressions: PASS'
-            'v2.2 architecture regressions: PASS'
+            'architecture regressions: PASS'
             'Portable six-runtime-binary layout: PASS'
             'Reproducible portable binaries: PASS'
             'ASLR/DEP/HIGH_ENTROPY_VA: PASS'

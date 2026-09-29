@@ -1,4 +1,4 @@
-# ChatGPT exports / raw account data
+# Official OpenAI account exports / raw account data
 *.zip
 conversations.json
 conversations_*.json
@@ -10,9 +10,6 @@ user.json
 *Continuation*.md
 LLM_Continuity_Toolkit_Activity_*.txt
 LLM_Continuity_Toolkit_Redacted_Activity_*.txt
-# Legacy pre-v2.3 output names remain ignored for local compatibility.
-*GPT Continuation*.md
-GPT_Conversation_Splitter_Activity_*.txt
 exports/
 
 # .NET build / test output
@@ -24,13 +21,11 @@ TestResults/
 *.exe
 *.dll
 
-# Diagnostics and temporary files
+# Diagnostics and transactional staging
 *.log
 *.tmp
 .llm-continuity-*.tmp
 .llm-continuity-*.stage
-.gpt-splitter-*.tmp
-.gpt-splitter-*.stage
 startup_error.log
 operation_error.log
 
