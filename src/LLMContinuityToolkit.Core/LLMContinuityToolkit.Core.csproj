@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>LLMContinuityToolkit.Core</AssemblyName>
+    <RootNamespace>LLMContinuityToolkit.Core</RootNamespace>
+  </PropertyGroup>
+</Project>

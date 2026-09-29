@@ -1,68 +1,32 @@
-name: Stable Windows Release
-
+name: Windows build and validation
 on:
+  pull_request:
+    branches: [ main ]
   workflow_dispatch:
-    inputs:
-      release_tag:
-        description: 'Immutable release tag to build (for example v2.4.0)'
-        required: true
-        default: 'v2.4.0'
-        type: string
-
 concurrency:
-  group: stable-windows-release-${{ inputs.release_tag }}
-  cancel-in-progress: false
-
+  group: v2-windows-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
-
 jobs:
-  build-test-package:
+  build-test-publish:
     runs-on: windows-latest
     timeout-minutes: 25
     steps:
-      - name: Checkout exact release tag
+      - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.release_tag }}
-          fetch-depth: 0
           persist-credentials: false
-
-      - name: Validate immutable tag and source version
-        shell: pwsh
-        run: |
-          $tag = '${{ inputs.release_tag }}'.Trim()
-          if ($tag -notmatch '^v\d+\.\d+\.\d+$') {
-            throw "Release tag must have the form vX.Y.Z; got '$tag'."
-          }
-          $version = $tag.Substring(1)
-          [xml]$props = Get-Content 'Directory.Build.props'
-          $sourceVersion = [string]$props.Project.PropertyGroup.Version
-          if ($sourceVersion -ne $version) {
-            throw "Release tag/source version mismatch: tag=$version source=$sourceVersion"
-          }
-          $head = (git rev-parse HEAD).Trim()
-          $exactTags = @(git tag --points-at HEAD)
-          if ($exactTags -notcontains $tag) {
-            throw "Checked-out commit $head is not exactly tagged '$tag'."
-          }
-          "RELEASE_TAG=$tag" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
-          "RELEASE_VERSION=$version" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
-          "RELEASE_COMMIT=$head" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
-          Write-Host "Validated immutable release source: $tag -> $head"
-
       - name: Setup pinned .NET SDK
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: '10.0.302'
-
       - name: Verify deterministic SDK
         shell: pwsh
         run: |
           $actual = (dotnet --version).Trim()
           if ($actual -ne '10.0.302') { throw "Expected .NET SDK 10.0.302, got $actual" }
           dotnet --info
-
       - name: Enforce repository identity sanitation
         shell: pwsh
         run: |
@@ -75,40 +39,50 @@ jobs:
             $contentHits | ForEach-Object { Write-Host $_ }
             throw 'Forbidden legacy identity sequence detected in tracked repository content.'
           }
+          $global:LASTEXITCODE = 0
           Write-Host 'Repository identity sanitation passed.'
 
       - name: Enforce offline security architecture
         shell: pwsh
         run: ./tools/security/Assert-OfflineArchitecture.ps1
-
       - name: Build core
         run: dotnet build src/LLMContinuityToolkit.Core/LLMContinuityToolkit.Core.csproj -c Release
-
-      - name: Run established regression suite
+      - name: Run synthetic regression suite
         run: dotnet run --project tests/LLMContinuityToolkit.RegressionTests/LLMContinuityToolkit.RegressionTests.csproj -c Release
-
-      - name: Run architecture regression suite
-        run: dotnet run --project tests/LLMContinuityToolkit.ArchitectureTests/LLMContinuityToolkit.ArchitectureTests.csproj -c Release
-
+      - name: Build local parity-audit utility
+        run: dotnet build tools/LLMContinuityToolkit.ParityAudit/LLMContinuityToolkit.ParityAudit.csproj -c Release
       - name: Build WPF application
         run: dotnet build src/LLMContinuityToolkit.App/LLMContinuityToolkit.App.csproj -c Release
-
-      - name: Publish stable portable build A
+      - name: Publish one-EXE comparison build
+        run: >-
+          dotnet publish src/LLMContinuityToolkit.App/LLMContinuityToolkit.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishReadyToRun=false -p:PublishTrimmed=false -o artifacts/single-exe
+      - name: Publish zero-runtime-extraction portable build A
         run: >-
           dotnet publish src/LLMContinuityToolkit.App/LLMContinuityToolkit.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=false -p:EnableCompressionInSingleFile=true -p:PublishReadyToRun=false -p:PublishTrimmed=false -o artifacts/portable
-
-      - name: Publish stable portable build B
+      - name: Publish zero-runtime-extraction portable build B
         run: >-
           dotnet publish src/LLMContinuityToolkit.App/LLMContinuityToolkit.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=false -p:EnableCompressionInSingleFile=true -p:PublishReadyToRun=false -p:PublishTrimmed=false -o artifacts/portable-repro
-
       - name: Remove debug symbols
         shell: pwsh
-        run: Get-ChildItem artifacts/portable,artifacts/portable-repro -Recurse -Filter *.pdb | Remove-Item -Force
-
-      - name: Verify portable runtime layout
+        run: Get-ChildItem artifacts/single-exe,artifacts/portable,artifacts/portable-repro -Recurse -Filter *.pdb | Remove-Item -Force
+      - name: Compare deployment layouts
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force artifacts/reports | Out-Null
+          $single = @(Get-ChildItem artifacts/single-exe -File)
+          $portable = @(Get-ChildItem artifacts/portable -File)
+          @(
+            "One-EXE self-extracting comparison: $($single.Count) file(s)"
+            ($single | ForEach-Object { "  $($_.Name)  $($_.Length) bytes" })
+            ""
+            "Zero-runtime-extraction managed-compressed portable release: $($portable.Count) file(s)"
+            ($portable | ForEach-Object { "  $($_.Name)  $($_.Length) bytes" })
+          ) | Set-Content artifacts/reports/deployment-layout-report.txt
+          Get-Content artifacts/reports/deployment-layout-report.txt
+      - name: Verify portable runtime layout
+        shell: pwsh
+        run: |
+          $files = @(Get-ChildItem artifacts/portable -File)
           $expected = @(
             'LLM Continuity Toolkit.exe',
             'D3DCompiler_47_cor3.dll',
@@ -117,23 +91,18 @@ jobs:
             'vcruntime140_cor3.dll',
             'wpfgfx_cor3.dll'
           )
-          $actual = @(Get-ChildItem artifacts/portable -File | Select-Object -ExpandProperty Name | Sort-Object)
+          $actual = @($files.Name | Sort-Object)
           $wanted = @($expected | Sort-Object)
           if (($actual -join "`n") -ne ($wanted -join "`n")) {
-            throw "Portable runtime layout changed unexpectedly. Actual: $($actual -join ', ')"
+            throw "Portable deployment layout changed unexpectedly. Actual: $($actual -join ', ')"
           }
-          @(
-            'Stable portable six-runtime-binary layout'
-            ($actual | ForEach-Object { $item = Get-Item (Join-Path 'artifacts/portable' $_); "$($_)  $($item.Length) bytes" })
-          ) | Set-Content artifacts/reports/deployment-layout-report.txt
-
       - name: Verify reproducible portable binaries
         shell: pwsh
         run: |
           $a = Get-ChildItem artifacts/portable -File | Sort-Object Name
           $b = Get-ChildItem artifacts/portable-repro -File | Sort-Object Name
           if (($a.Name -join "`n") -ne ($b.Name -join "`n")) { throw 'Reproducible-build file lists differ.' }
-          $report = @('Reproducible portable runtime verification')
+          $report = @('Reproducible portable build verification')
           foreach ($file in $a) {
             $other = Join-Path 'artifacts/portable-repro' $file.Name
             $ha = (Get-FileHash $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -143,33 +112,26 @@ jobs:
             if (-not $same) { throw "Portable binary is not reproducible: $($file.Name)" }
           }
           $report | Set-Content artifacts/reports/reproducible-build.txt
-
+          $report | ForEach-Object { Write-Host $_ }
       - name: Audit Windows PE mitigations
         shell: pwsh
         run: ./tools/security/Assert-PeMitigations.ps1 -Path 'artifacts/portable/LLM Continuity Toolkit.exe' -ReportPath 'artifacts/reports/pe-mitigation-audit.txt'
-
-      - name: Require surviving usable main window
+      - name: Measure portable startup
         shell: pwsh
         run: |
           $process = $null
           $watch = [Diagnostics.Stopwatch]::StartNew()
           try {
             $process = Start-Process -FilePath 'artifacts/portable/LLM Continuity Toolkit.exe' -WorkingDirectory (Resolve-Path 'artifacts/portable') -PassThru
-            if (-not $process.WaitForInputIdle(5000)) { throw 'Application did not reach an input-idle state within 5 seconds.' }
+            if (-not $process.WaitForInputIdle(5000)) { throw 'Portable application did not reach an input-idle UI state within 5 seconds.' }
             $watch.Stop()
-            Start-Sleep -Milliseconds 1500
-            $process.Refresh()
-            if ($process.HasExited) { throw "Application exited during startup survival window with code $($process.ExitCode)." }
-            if ($process.MainWindowHandle -eq 0) { throw 'Application survived but no usable main window handle was present.' }
-            if ([string]::IsNullOrWhiteSpace($process.MainWindowTitle) -or $process.MainWindowTitle -notlike 'LLM Continuity Toolkit*') {
-              throw "Unexpected or missing main window title: '$($process.MainWindowTitle)'."
-            }
-            ('Stable startup to input-idle: {0:N0} ms' -f $watch.Elapsed.TotalMilliseconds) | Set-Content artifacts/reports/startup-performance.txt
+            $line = 'Portable startup to input-idle: {0:N0} ms' -f $watch.Elapsed.TotalMilliseconds
+            $line | Set-Content artifacts/reports/startup-performance.txt
+            Write-Host $line
           }
           finally {
             if ($process -and -not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
           }
-
       - name: Audit runtime network endpoints
         shell: pwsh
         run: |
@@ -181,27 +143,58 @@ jobs:
             $tcp = @(Get-NetTCPConnection -OwningProcess $process.Id -ErrorAction SilentlyContinue)
             $udp = @(Get-NetUDPEndpoint -OwningProcess $process.Id -ErrorAction SilentlyContinue)
             @(
-              'Runtime network endpoint audit'
+              "Runtime network endpoint audit"
+              "PID: $($process.Id)"
               "Owned TCP endpoints: $($tcp.Count)"
               "Owned UDP endpoints: $($udp.Count)"
             ) | Set-Content artifacts/reports/runtime-network-audit.txt
+            Get-Content artifacts/reports/runtime-network-audit.txt
             if ($tcp.Count -ne 0 -or $udp.Count -ne 0) { throw 'Portable application unexpectedly opened a network endpoint.' }
           }
           finally {
             if ($process -and -not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
           }
-
+      - name: Audit one-EXE runtime extraction
+        shell: pwsh
+        run: |
+          $extractRoot = Join-Path $env:RUNNER_TEMP 'llm-continuity-single-exe-audit'
+          Remove-Item $extractRoot -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force $extractRoot | Out-Null
+          $oldExtract = $env:DOTNET_BUNDLE_EXTRACT_BASE_DIR
+          $env:DOTNET_BUNDLE_EXTRACT_BASE_DIR = $extractRoot
+          $process = $null
+          try {
+            $process = Start-Process -FilePath 'artifacts/single-exe/LLM Continuity Toolkit.exe' -PassThru
+            Start-Sleep -Milliseconds 1800
+            $during = @(Get-ChildItem $extractRoot -Recurse -File -ErrorAction SilentlyContinue)
+            if ($process -and -not $process.HasExited) { Stop-Process -Id $process.Id -Force }
+            Start-Sleep -Milliseconds 500
+            $after = @(Get-ChildItem $extractRoot -Recurse -File -ErrorAction SilentlyContinue)
+            @(
+              "One-EXE comparison"
+              "Files observed while running: $($during.Count)"
+              "Files remaining after exit: $($after.Count)"
+            ) | Set-Content artifacts/reports/single-exe-extraction-audit.txt
+            Get-Content artifacts/reports/single-exe-extraction-audit.txt
+          }
+          finally {
+            if ($process -and -not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
+            $env:DOTNET_BUNDLE_EXTRACT_BASE_DIR = $oldExtract
+            Remove-Item $extractRoot -Recurse -Force -ErrorAction SilentlyContinue
+          }
       - name: Audit portable zero-residue user roots
         shell: pwsh
         run: |
-          $root = Join-Path $env:RUNNER_TEMP 'llm-continuity-stable-residue-audit'
+          $root = Join-Path $env:RUNNER_TEMP 'llm-continuity-residue-audit'
           Remove-Item $root -Recurse -Force -ErrorAction SilentlyContinue
           $tempRoot = Join-Path $root 'Temp'
           $appDataRoot = Join-Path $root 'AppData'
           $localRoot = Join-Path $root 'LocalAppData'
           $bundleRoot = Join-Path $root 'Bundle'
           New-Item -ItemType Directory -Force $tempRoot,$appDataRoot,$localRoot,$bundleRoot | Out-Null
-          $old = @{ TEMP=$env:TEMP; TMP=$env:TMP; APPDATA=$env:APPDATA; LOCALAPPDATA=$env:LOCALAPPDATA; BUNDLE=$env:DOTNET_BUNDLE_EXTRACT_BASE_DIR }
+          $old = @{
+            TEMP=$env:TEMP; TMP=$env:TMP; APPDATA=$env:APPDATA; LOCALAPPDATA=$env:LOCALAPPDATA; BUNDLE=$env:DOTNET_BUNDLE_EXTRACT_BASE_DIR
+          }
           $process = $null
           try {
             $env:TEMP=$tempRoot; $env:TMP=$tempRoot; $env:APPDATA=$appDataRoot; $env:LOCALAPPDATA=$localRoot; $env:DOTNET_BUNDLE_EXTRACT_BASE_DIR=$bundleRoot
@@ -212,13 +205,14 @@ jobs:
             Start-Sleep -Milliseconds 400
             $files = @(Get-ChildItem $root -Recurse -File -ErrorAction SilentlyContinue)
             @(
-              'Stable portable controlled user-root residue audit'
+              "Portable controlled user-root residue audit"
               "TEMP/TMP files after exit: $(@(Get-ChildItem $tempRoot -Recurse -File -ErrorAction SilentlyContinue).Count)"
               "APPDATA files after exit: $(@(Get-ChildItem $appDataRoot -Recurse -File -ErrorAction SilentlyContinue).Count)"
               "LOCALAPPDATA files after exit: $(@(Get-ChildItem $localRoot -Recurse -File -ErrorAction SilentlyContinue).Count)"
               "Bundle extraction files after exit: $(@(Get-ChildItem $bundleRoot -Recurse -File -ErrorAction SilentlyContinue).Count)"
               "Total controlled-root files after exit: $($files.Count)"
             ) | Set-Content artifacts/reports/portable-residue-audit.txt
+            Get-Content artifacts/reports/portable-residue-audit.txt
             if ($files.Count -ne 0) { throw 'Portable application left files in controlled Windows user-data roots.' }
           }
           finally {
@@ -226,36 +220,13 @@ jobs:
             $env:TEMP=$old.TEMP; $env:TMP=$old.TMP; $env:APPDATA=$old.APPDATA; $env:LOCALAPPDATA=$old.LOCALAPPDATA; $env:DOTNET_BUNDLE_EXTRACT_BASE_DIR=$old.BUNDLE
             Remove-Item $root -Recurse -Force -ErrorAction SilentlyContinue
           }
-
-      - name: Stage stable portable package
+      - name: Stage PR validation portable folder
         shell: pwsh
         run: |
           $release = 'artifacts/release/LLM Continuity Toolkit'
           New-Item -ItemType Directory -Force $release | Out-Null
           Copy-Item artifacts/portable/* $release -Force
-          Copy-Item LICENSE.txt (Join-Path $release 'LLM-CONTINUITY-TOOLKIT-LICENSE.txt') -Force
-          Copy-Item MICROSOFT-RUNTIME-NOTICES.txt (Join-Path $release 'MICROSOFT-RUNTIME-NOTICES.txt') -Force
-
-          $dotnetRoot = Split-Path -Parent (Get-Command dotnet).Source
-          $dotnetLicense = Get-ChildItem $dotnetRoot -File | Where-Object { $_.Name -ieq 'LICENSE.txt' } | Select-Object -First 1
-          $dotnetNotices = Get-ChildItem $dotnetRoot -File | Where-Object { $_.Name -ieq 'ThirdPartyNotices.txt' -or $_.Name -ieq 'THIRD-PARTY-NOTICES.TXT' } | Select-Object -First 1
-          if (-not $dotnetLicense) { throw "Pinned Windows .NET installation did not expose its root LICENSE.txt under $dotnetRoot." }
-          if (-not $dotnetNotices) { throw "Pinned Windows .NET installation did not expose its root ThirdPartyNotices file under $dotnetRoot." }
-          Copy-Item $dotnetLicense.FullName (Join-Path $release 'DOTNET-LICENSE.txt') -Force
-          Copy-Item $dotnetNotices.FullName (Join-Path $release 'DOTNET-THIRD-PARTY-NOTICES.txt') -Force
-
-          $legalExpected = @(
-            'LLM-CONTINUITY-TOOLKIT-LICENSE.txt',
-            'MICROSOFT-RUNTIME-NOTICES.txt',
-            'DOTNET-LICENSE.txt',
-            'DOTNET-THIRD-PARTY-NOTICES.txt'
-          )
-          foreach ($name in $legalExpected) {
-            $path = Join-Path $release $name
-            if (-not (Test-Path $path) -or (Get-Item $path).Length -le 0) { throw "Required legal notice missing or empty: $name" }
-          }
-
-      - name: Generate packaged-file SHA256SUMS
+      - name: Generate deployed-file SHA256SUMS
         shell: pwsh
         run: |
           $release = 'artifacts/release/LLM Continuity Toolkit'
@@ -263,54 +234,44 @@ jobs:
             $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
             "$hash  $($_.Name)"
           } | Set-Content artifacts/reports/SHA256SUMS.txt
-
-      - name: Generate stable build provenance
+          Get-Content artifacts/reports/SHA256SUMS.txt
+      - name: Generate build provenance
         shell: pwsh
         run: |
           $sdk=(dotnet --version).Trim()
           @(
-            "LLM Continuity Toolkit v$env:RELEASE_VERSION stable build provenance"
-            "Tag: $env:RELEASE_TAG"
-            "Commit: $env:RELEASE_COMMIT"
-            'Runtime: win-x64'
-            'Configuration: Release'
+            'LLM Continuity Toolkit PR validation build provenance'
+            "Commit: $env:GITHUB_SHA"
+            "Branch/ref: $env:GITHUB_REF"
+            "Runtime: win-x64"
+            "Configuration: Release"
             'Portable managed compression: enabled'
             ".NET SDK: $sdk"
-            'Tag/source version parity: PASS'
             'Offline architecture guard: PASS'
-            'Established regressions: PASS'
-            'architecture regressions: PASS'
             'Portable six-runtime-binary layout: PASS'
             'Reproducible portable binaries: PASS'
             'ASLR/DEP/HIGH_ENTROPY_VA: PASS'
-            'Startup survival: PASS'
             'Runtime network endpoints: 0 TCP / 0 UDP'
             'Controlled TEMP/APPDATA/LOCALAPPDATA residue: 0 files'
             'Bundle extraction residue: 0 files'
-            'Project + Microsoft/.NET legal notices packaged: PASS'
             ''
-            'Packaged-file SHA-256:'
+            'Deployed-file SHA-256:'
             (Get-Content artifacts/reports/SHA256SUMS.txt)
           ) | Set-Content artifacts/reports/BUILD_PROVENANCE.txt
-
-      - name: Package stable Windows release
+          Get-Content artifacts/reports/BUILD_PROVENANCE.txt
+      - name: Package Windows PR validation
+        shell: pwsh
+        run: Compress-Archive -Path 'artifacts/release/LLM Continuity Toolkit' -DestinationPath artifacts/LLM_Continuity_Toolkit_PR_Validation_Windows_Portable.zip -CompressionLevel Optimal
+      - name: SHA-256 package report
         shell: pwsh
         run: |
-          $zip = "artifacts/LLM_Continuity_Toolkit_v$env:RELEASE_VERSION`_Windows_Portable.zip"
-          Compress-Archive -Path 'artifacts/release/LLM Continuity Toolkit' -DestinationPath $zip -CompressionLevel Optimal
-          "RELEASE_ZIP=$zip" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
-
-      - name: SHA-256 stable package report
-        shell: pwsh
-        run: |
-          $hash = Get-FileHash $env:RELEASE_ZIP -Algorithm SHA256
-          "$($hash.Hash.ToLowerInvariant())  $(Split-Path $env:RELEASE_ZIP -Leaf)" | Set-Content artifacts/reports/PACKAGE_SHA256.txt
-          Get-Content artifacts/reports/PACKAGE_SHA256.txt
-
-      - name: Upload stable Windows artifact
+          $hash = Get-FileHash artifacts/LLM_Continuity_Toolkit_PR_Validation_Windows_Portable.zip -Algorithm SHA256
+          $hash | Format-Table -AutoSize
+          "$($hash.Hash.ToLowerInvariant())  LLM_Continuity_Toolkit_PR_Validation_Windows_Portable.zip" | Set-Content artifacts/reports/PACKAGE_SHA256.txt
+      - name: Upload Windows PR validation artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: LLM-Continuity-Toolkit-${{ inputs.release_tag }}-Stable
-          path: ${{ env.RELEASE_ZIP }}
+          name: LLM-Continuity-Toolkit-PR-Validation
+          path: artifacts/LLM_Continuity_Toolkit_PR_Validation_Windows_Portable.zip
           if-no-files-found: error
           compression-level: 0

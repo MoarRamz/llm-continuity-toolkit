@@ -31,7 +31,7 @@ jobs:
 
       - name: Publish production-equivalent portable application
         run: >-
-          dotnet publish src/GPTConversationSplitter.App/GPTConversationSplitter.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=false -p:EnableCompressionInSingleFile=true -p:PublishReadyToRun=false -p:PublishTrimmed=false -o artifacts/startup-gate
+          dotnet publish src/LLMContinuityToolkit.App/LLMContinuityToolkit.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=false -p:EnableCompressionInSingleFile=true -p:PublishReadyToRun=false -p:PublishTrimmed=false -o artifacts/startup-gate
 
       - name: Require surviving usable main window
         shell: pwsh

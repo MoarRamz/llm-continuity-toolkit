@@ -1,0 +1,283 @@
+name: Architecture validation gate
+
+on:
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+concurrency:
+  group: architecture-validation-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  optimize-test-compare:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup pinned .NET SDK
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: '10.0.302'
+
+      - name: Verify deterministic SDK
+        shell: pwsh
+        run: |
+          $actual = (dotnet --version).Trim()
+          if ($actual -ne '10.0.302') { throw "Expected .NET SDK 10.0.302, got $actual" }
+
+      - name: Enforce repository identity sanitation
+        shell: pwsh
+        run: |
+          $needle = -join ([char]0x67,[char]0x70,[char]0x74)
+          $pathHits = @(git ls-files | Select-String -Pattern $needle -CaseSensitive:$false)
+          $contentHits = @(git grep -n -I -i -e $needle -- . 2>$null)
+          if ($LASTEXITCODE -notin @(0,1)) { throw 'Repository content scan failed.' }
+          if ($pathHits.Count -gt 0 -or $contentHits.Count -gt 0) {
+            $pathHits | ForEach-Object { Write-Host $_ }
+            $contentHits | ForEach-Object { Write-Host $_ }
+            throw 'Forbidden legacy identity sequence detected in tracked repository content.'
+          }
+          $global:LASTEXITCODE = 0
+          Write-Host 'Repository identity sanitation passed.'
+
+      - name: Enforce offline security architecture
+        shell: pwsh
+        run: ./tools/security/Assert-OfflineArchitecture.ps1
+
+      - name: Run established regression suite
+        run: dotnet run --project tests/LLMContinuityToolkit.RegressionTests/LLMContinuityToolkit.RegressionTests.csproj -c Release
+
+      - name: Run architecture validation regressions
+        run: dotnet run --project tests/LLMContinuityToolkit.ArchitectureTests/LLMContinuityToolkit.ArchitectureTests.csproj -c Release
+
+      - name: Publish normal portable comparison
+        run: >-
+          dotnet publish src/LLMContinuityToolkit.App/LLMContinuityToolkit.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=false -p:EnableCompressionInSingleFile=false -p:PublishReadyToRun=false -p:PublishTrimmed=false -o artifacts/validation-normal
+
+      - name: Publish managed-compressed portable A
+        run: >-
+          dotnet publish src/LLMContinuityToolkit.App/LLMContinuityToolkit.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=false -p:EnableCompressionInSingleFile=true -p:PublishReadyToRun=false -p:PublishTrimmed=false -o artifacts/validation-compressed
+
+      - name: Publish managed-compressed portable B
+        run: >-
+          dotnet publish src/LLMContinuityToolkit.App/LLMContinuityToolkit.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=false -p:EnableCompressionInSingleFile=true -p:PublishReadyToRun=false -p:PublishTrimmed=false -o artifacts/validation-compressed-repro
+
+      - name: Remove debug symbols
+        shell: pwsh
+        run: Get-ChildItem artifacts/validation-normal,artifacts/validation-compressed,artifacts/validation-compressed-repro -Recurse -Filter *.pdb | Remove-Item -Force
+
+      - name: Verify six-runtime-binary layouts
+        shell: pwsh
+        run: |
+          $expected = @(
+            'LLM Continuity Toolkit.exe',
+            'D3DCompiler_47_cor3.dll',
+            'PenImc_cor3.dll',
+            'PresentationNative_cor3.dll',
+            'vcruntime140_cor3.dll',
+            'wpfgfx_cor3.dll'
+          ) | Sort-Object
+          foreach ($folder in @('artifacts/validation-normal','artifacts/validation-compressed','artifacts/validation-compressed-repro')) {
+            $actual = @(Get-ChildItem $folder -File | Select-Object -ExpandProperty Name | Sort-Object)
+            if (($actual -join "`n") -ne ($expected -join "`n")) {
+              throw "Unexpected portable layout in $folder`: $($actual -join ', ')"
+            }
+          }
+
+      - name: Verify compressed reproducibility
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force artifacts/reports | Out-Null
+          $report = @('managed-compressed portable reproducibility')
+          foreach ($file in Get-ChildItem artifacts/validation-compressed -File | Sort-Object Name) {
+            $other = Join-Path 'artifacts/validation-compressed-repro' $file.Name
+            $a = (Get-FileHash $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            $b = (Get-FileHash $other -Algorithm SHA256).Hash.ToLowerInvariant()
+            $same = $a -eq $b
+            $report += "$($file.Name): $same  $a"
+            if (-not $same) { throw "Compressed build is not reproducible: $($file.Name)" }
+          }
+          $report | Set-Content artifacts/reports/reproducible-build.txt
+          $report | ForEach-Object { Write-Host $_ }
+
+      - name: Compare package sizes
+        shell: pwsh
+        run: |
+          $normalFiles = @(Get-ChildItem artifacts/validation-normal -File)
+          $compressedFiles = @(Get-ChildItem artifacts/validation-compressed -File)
+          $normalTotal = ($normalFiles | Measure-Object Length -Sum).Sum
+          $compressedTotal = ($compressedFiles | Measure-Object Length -Sum).Sum
+          $normalExe = (Get-Item 'artifacts/validation-normal/LLM Continuity Toolkit.exe').Length
+          $compressedExe = (Get-Item 'artifacts/validation-compressed/LLM Continuity Toolkit.exe').Length
+          $saved = $normalTotal - $compressedTotal
+          $pct = if ($normalTotal -gt 0) { 100.0 * $saved / $normalTotal } else { 0 }
+          @(
+            "managed single-file compression comparison"
+            "Normal total bytes: $normalTotal"
+            "Compressed total bytes: $compressedTotal"
+            "Total bytes saved: $saved"
+            ('Total size reduction: {0:N1}%' -f $pct)
+            "Normal EXE bytes: $normalExe"
+            "Compressed EXE bytes: $compressedExe"
+          ) | Set-Content artifacts/reports/compression-size.txt
+          Get-Content artifacts/reports/compression-size.txt
+          if ($pct -lt 20) { throw ('Compression benefit fell below the 20% release threshold: {0:N1}%' -f $pct) }
+
+      - name: Measure startup survival for both variants
+        shell: pwsh
+        run: |
+          $report = @('startup comparison')
+          foreach ($variant in @('validation-normal','validation-compressed')) {
+            $process = $null
+            $watch = [Diagnostics.Stopwatch]::StartNew()
+            try {
+              $path = "artifacts/$variant/LLM Continuity Toolkit.exe"
+              $process = Start-Process -FilePath $path -WorkingDirectory (Resolve-Path "artifacts/$variant") -PassThru
+              if (-not $process.WaitForInputIdle(5000)) { throw "$variant did not become input-idle within 5 seconds." }
+              Start-Sleep -Milliseconds 1200
+              $process.Refresh()
+              if ($process.HasExited) { throw "$variant exited during startup survival with code $($process.ExitCode)." }
+              if ($process.MainWindowHandle -eq 0) { throw "$variant has no usable main window." }
+              $watch.Stop()
+              $report += ('{0}: {1:N0} ms to input-idle + survival' -f $variant,$watch.Elapsed.TotalMilliseconds)
+            }
+            finally {
+              if ($process -and -not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
+            }
+          }
+          $report | Set-Content artifacts/reports/compression-startup.txt
+          $report | ForEach-Object { Write-Host $_ }
+
+      - name: Audit compressed Windows PE mitigations
+        shell: pwsh
+        run: ./tools/security/Assert-PeMitigations.ps1 -Path 'artifacts/validation-compressed/LLM Continuity Toolkit.exe' -ReportPath 'artifacts/reports/pe-mitigation-audit.txt'
+
+      - name: Audit compressed runtime network endpoints
+        shell: pwsh
+        run: |
+          $process = $null
+          try {
+            $process = Start-Process -FilePath 'artifacts/validation-compressed/LLM Continuity Toolkit.exe' -WorkingDirectory (Resolve-Path 'artifacts/validation-compressed') -PassThru
+            if (-not $process.WaitForInputIdle(5000)) { throw 'Compressed application did not become input-idle for network audit.' }
+            Start-Sleep -Milliseconds 700
+            $process.Refresh()
+            if ($process.HasExited) { throw "Compressed application exited during network audit with code $($process.ExitCode)." }
+            $tcp = @(Get-NetTCPConnection -OwningProcess $process.Id -ErrorAction SilentlyContinue)
+            $udp = @(Get-NetUDPEndpoint -OwningProcess $process.Id -ErrorAction SilentlyContinue)
+            @(
+              "managed-compressed runtime network audit"
+              "Owned TCP endpoints: $($tcp.Count)"
+              "Owned UDP endpoints: $($udp.Count)"
+            ) | Set-Content artifacts/reports/runtime-network-audit.txt
+            Get-Content artifacts/reports/runtime-network-audit.txt
+            if ($tcp.Count -ne 0 -or $udp.Count -ne 0) { throw 'Compressed portable application unexpectedly opened a network endpoint.' }
+          }
+          finally {
+            if ($process -and -not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
+          }
+
+      - name: Audit compressed zero-residue roots
+        shell: pwsh
+        run: |
+          $root = Join-Path $env:RUNNER_TEMP 'llm-continuity-validation-compressed-residue'
+          Remove-Item $root -Recurse -Force -ErrorAction SilentlyContinue
+          $tempRoot = Join-Path $root 'Temp'
+          $appDataRoot = Join-Path $root 'AppData'
+          $localRoot = Join-Path $root 'LocalAppData'
+          $bundleRoot = Join-Path $root 'Bundle'
+          New-Item -ItemType Directory -Force $tempRoot,$appDataRoot,$localRoot,$bundleRoot | Out-Null
+          $old = @{ TEMP=$env:TEMP; TMP=$env:TMP; APPDATA=$env:APPDATA; LOCALAPPDATA=$env:LOCALAPPDATA; BUNDLE=$env:DOTNET_BUNDLE_EXTRACT_BASE_DIR }
+          $process = $null
+          try {
+            $env:TEMP=$tempRoot; $env:TMP=$tempRoot; $env:APPDATA=$appDataRoot; $env:LOCALAPPDATA=$localRoot; $env:DOTNET_BUNDLE_EXTRACT_BASE_DIR=$bundleRoot
+            $process = Start-Process -FilePath 'artifacts/validation-compressed/LLM Continuity Toolkit.exe' -WorkingDirectory (Resolve-Path 'artifacts/validation-compressed') -PassThru
+            if (-not $process.WaitForInputIdle(5000)) { throw 'Compressed application did not become input-idle.' }
+            Start-Sleep -Milliseconds 1000
+            $process.Refresh()
+            if ($process.HasExited) { throw "Compressed application exited during residue audit with code $($process.ExitCode)." }
+            Stop-Process -Id $process.Id -Force
+            $process = $null
+            Start-Sleep -Milliseconds 400
+            $files = @(Get-ChildItem $root -Recurse -File -ErrorAction SilentlyContinue)
+            @(
+              "Compressed portable controlled-root residue audit"
+              "TEMP/TMP files after exit: $(@(Get-ChildItem $tempRoot -Recurse -File -ErrorAction SilentlyContinue).Count)"
+              "APPDATA files after exit: $(@(Get-ChildItem $appDataRoot -Recurse -File -ErrorAction SilentlyContinue).Count)"
+              "LOCALAPPDATA files after exit: $(@(Get-ChildItem $localRoot -Recurse -File -ErrorAction SilentlyContinue).Count)"
+              "Bundle extraction files after exit: $(@(Get-ChildItem $bundleRoot -Recurse -File -ErrorAction SilentlyContinue).Count)"
+              "Total controlled-root files after exit: $($files.Count)"
+            ) | Set-Content artifacts/reports/compression-residue.txt
+            Get-Content artifacts/reports/compression-residue.txt
+            if ($files.Count -ne 0) { throw 'Managed-compressed portable application left controlled-root residue.' }
+          }
+          finally {
+            if ($process -and -not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
+            $env:TEMP=$old.TEMP; $env:TMP=$old.TMP; $env:APPDATA=$old.APPDATA; $env:LOCALAPPDATA=$old.LOCALAPPDATA; $env:DOTNET_BUNDLE_EXTRACT_BASE_DIR=$old.BUNDLE
+            Remove-Item $root -Recurse -Force -ErrorAction SilentlyContinue
+          }
+
+      - name: Generate deployed-file SHA256SUMS
+        shell: pwsh
+        run: |
+          Get-ChildItem artifacts/validation-compressed -File | Sort-Object Name | ForEach-Object {
+            $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$hash  $($_.Name)"
+          } | Set-Content artifacts/reports/SHA256SUMS.txt
+          Get-Content artifacts/reports/SHA256SUMS.txt
+
+      - name: Generate architecture validation provenance
+        shell: pwsh
+        run: |
+          @(
+            'LLM Continuity Toolkit architecture validation provenance'
+            "Commit: $env:GITHUB_SHA"
+            "Branch/ref: $env:GITHUB_REF"
+            'Runtime: win-x64'
+            'Configuration: Release'
+            'Portable managed compression: enabled'
+            '.NET SDK: 10.0.302'
+            'Established regressions: PASS'
+            'architecture validation regressions: PASS'
+            'Offline architecture guard: PASS'
+            'Portable six-runtime-binary layout: PASS'
+            'Reproducible compressed binaries: PASS'
+            'ASLR/DEP/HIGH_ENTROPY_VA: PASS'
+            'Runtime network endpoints: 0 TCP / 0 UDP'
+            'Controlled TEMP/APPDATA/LOCALAPPDATA residue: 0 files'
+            'Bundle extraction residue: 0 files'
+            ''
+            'Deployed-file SHA-256:'
+            (Get-Content artifacts/reports/SHA256SUMS.txt)
+          ) | Set-Content artifacts/reports/BUILD_PROVENANCE.txt
+          Get-Content artifacts/reports/BUILD_PROVENANCE.txt
+
+      - name: Package architecture validation
+        shell: pwsh
+        run: |
+          $release = 'artifacts/release/LLM Continuity Toolkit'
+          New-Item -ItemType Directory -Force $release | Out-Null
+          Copy-Item artifacts/validation-compressed/* $release -Force
+          Compress-Archive -Path 'artifacts/release/LLM Continuity Toolkit' -DestinationPath artifacts/LLM_Continuity_Toolkit_Architecture_Validation_Windows_Portable.zip -CompressionLevel Optimal
+
+      - name: Generate architecture validation package SHA-256
+        shell: pwsh
+        run: |
+          $hash = Get-FileHash artifacts/LLM_Continuity_Toolkit_Architecture_Validation_Windows_Portable.zip -Algorithm SHA256
+          "$($hash.Hash.ToLowerInvariant())  LLM_Continuity_Toolkit_Architecture_Validation_Windows_Portable.zip" | Set-Content artifacts/reports/PACKAGE_SHA256.txt
+          Get-Content artifacts/reports/PACKAGE_SHA256.txt
+
+      - name: Upload architecture validation
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: LLM-Continuity-Toolkit-Architecture-Validation
+          path: artifacts/LLM_Continuity_Toolkit_Architecture_Validation_Windows_Portable.zip
+          if-no-files-found: error
+          compression-level: 0

@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ApplicationIcon>Assets\LLM_Continuity_Toolkit.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AssemblyName>LLM Continuity Toolkit</AssemblyName>
+    <RootNamespace>LLMContinuityToolkit.App</RootNamespace>
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\LLMContinuityToolkit.Core\LLMContinuityToolkit.Core.csproj" />
+    <Resource Include="Assets\LLM_Continuity_Toolkit.ico" />
+  </ItemGroup>
+</Project>
