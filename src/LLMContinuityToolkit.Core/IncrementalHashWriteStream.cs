@@ -1,6 +1,6 @@
 using System.Security.Cryptography;
 
-namespace GPTConversationSplitter.Core;
+namespace LLMContinuityToolkit.Core;
 
 internal sealed class IncrementalHashWriteStream : Stream
 {

@@ -2,7 +2,7 @@ using System.Reflection;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 
-namespace GPTConversationSplitter.Core;
+namespace LLMContinuityToolkit.Core;
 
 public sealed record ConversationMessage(int Turn, string Role, string Text, double? CreateTime, int AttachmentCount);
 public sealed record AttachmentReference(int Turn, string Marker);
@@ -143,7 +143,7 @@ public sealed class ImportResult
     public required TimeSpan TotalTime { get; init; }
 }
 
-public enum ExportFormat { GptContinuationMarkdown, Markdown, Html, PlainText, CompleteJson }
+public enum ExportFormat { ContinuationMarkdown, Markdown, Html, PlainText, CompleteJson }
 public sealed record ExportProgress(int Current, int Total, string Title, string Phase);
 
 public sealed class ExportResult
@@ -182,7 +182,7 @@ public sealed class BundleVerificationResult
 
 public sealed class BundleManifest
 {
-    [JsonPropertyName("format")] public string Format { get; init; } = "gpt-conversation-splitter-bundle-v1";
+    [JsonPropertyName("format")] public string Format { get; init; } = "continuity-bundle-v2";
     [JsonPropertyName("bundle_schema")] public int BundleSchema { get; init; } = 1;
     [JsonPropertyName("application")] public string Application { get; init; } = AppInfo.Name;
     [JsonPropertyName("application_version")] public string ApplicationVersion { get; init; } = AppInfo.Version;

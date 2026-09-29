@@ -1,7 +1,7 @@
 using System.IO.Compression;
 using System.Text.Json;
 
-namespace GPTConversationSplitter.Core;
+namespace LLMContinuityToolkit.Core;
 
 internal sealed record RawJsonExportRequest(
     string ConversationId,

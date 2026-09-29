@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace GPTConversationSplitter.Core;
+namespace LLMContinuityToolkit.Core;
 
 public static class ContinuationInstructions
 {
@@ -25,7 +25,7 @@ public static class ContinuationInstructions
         builder.AppendLine($"Continuation files in this archive: {conversationCount}");
         builder.AppendLine($"Generated: {generatedAt:yyyy-MM-dd HH:mm}");
         builder.AppendLine();
-        builder.AppendLine("INSTRUCTIONS FOR CHATGPT");
+        builder.AppendLine("INSTRUCTIONS FOR CHATLLM");
         builder.AppendLine("------------------------");
         builder.AppendLine(prompt);
         return builder.ToString();

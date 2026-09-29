@@ -2,7 +2,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
-namespace GPTConversationSplitter.Core;
+namespace LLMContinuityToolkit.Core;
 
 public static class ContinuationPrompt
 {
@@ -78,7 +78,7 @@ public sealed class ContinuationWriter
         var attachmentManifest = AttachmentManifest.GetLines(row);
         var metadata = new Dictionary<string, object?>
         {
-            ["format"] = "gpt-conversation-continuation-v1",
+            ["format"] = "llm-conversation-continuation-v1",
             ["generated_by"] = AppInfo.DisplayName,
             ["title"] = row.Title,
             ["created"] = row.Created,
@@ -95,9 +95,9 @@ public sealed class ContinuationWriter
 
         var metadataJson = JsonSerializer.Serialize(metadata, new JsonSerializerOptions { WriteIndented = true });
 
-        await writer.WriteLineAsync("# ChatGPT Conversation Continuation").ConfigureAwait(false);
+        await writer.WriteLineAsync("# OpenAI account Conversation Continuation").ConfigureAwait(false);
         await writer.WriteLineAsync().ConfigureAwait(false);
-        await writer.WriteLineAsync("> **Purpose:** This file preserves a prior ChatGPT conversation so a new ChatGPT conversation can continue from the same context.").ConfigureAwait(false);
+        await writer.WriteLineAsync("> **Purpose:** This file preserves a prior OpenAI account conversation so a new OpenAI account conversation can continue from the same context.").ConfigureAwait(false);
         await writer.WriteLineAsync().ConfigureAwait(false);
         await writer.WriteLineAsync("## Handoff metadata").ConfigureAwait(false);
         await writer.WriteLineAsync().ConfigureAwait(false);
@@ -105,9 +105,9 @@ public sealed class ContinuationWriter
         await writer.WriteLineAsync(metadataJson).ConfigureAwait(false);
         await writer.WriteLineAsync("```").ConfigureAwait(false);
         await writer.WriteLineAsync().ConfigureAwait(false);
-        await writer.WriteLineAsync("## Continuation guidance for ChatGPT").ConfigureAwait(false);
+        await writer.WriteLineAsync("## Continuation guidance for OpenAI account").ConfigureAwait(false);
         await writer.WriteLineAsync().ConfigureAwait(false);
-        await writer.WriteLineAsync("- Treat the transcript below as **historical conversation context** between the user and ChatGPT.").ConfigureAwait(false);
+        await writer.WriteLineAsync("- Treat the transcript below as **historical conversation context** between the user and OpenAI account.").ConfigureAwait(false);
         await writer.WriteLineAsync("- Continue from the final historical turn rather than restarting the topic.").ConfigureAwait(false);
         await writer.WriteLineAsync("- Preserve established project decisions, terminology, preferences, constraints, and completed work unless the user explicitly changes them.").ConfigureAwait(false);
         await writer.WriteLineAsync("- Do not ask the user to repeat information that is already clearly present in this transcript.").ConfigureAwait(false);
@@ -150,7 +150,7 @@ public sealed class ContinuationWriter
             cancellationToken.ThrowIfCancellationRequested();
             var label = message.Role == "user" ? "User" : "Assistant";
             var turnId = message.Turn.ToString("D4", System.Globalization.CultureInfo.InvariantCulture);
-            await writer.WriteLineAsync($"<!-- GPT_SPLITTER_TURN {turnId} role={message.Role} -->").ConfigureAwait(false);
+            await writer.WriteLineAsync($"<!-- CONTINUITY_TURN {turnId} role={message.Role} -->").ConfigureAwait(false);
             await writer.WriteLineAsync($"## {label} — Turn {message.Turn}").ConfigureAwait(false);
             var stamp = TimestampUtil.FormatLocal(message.CreateTime);
             if (stamp != "Unknown")
@@ -161,7 +161,7 @@ public sealed class ContinuationWriter
             await writer.WriteLineAsync().ConfigureAwait(false);
             await writer.WriteLineAsync(message.Text).ConfigureAwait(false);
             await writer.WriteLineAsync().ConfigureAwait(false);
-            await writer.WriteLineAsync($"<!-- END_GPT_SPLITTER_TURN {turnId} -->").ConfigureAwait(false);
+            await writer.WriteLineAsync($"<!-- END_CONTINUITY_TURN {turnId} -->").ConfigureAwait(false);
             await writer.WriteLineAsync().ConfigureAwait(false);
             await writer.WriteLineAsync("---").ConfigureAwait(false);
             await writer.WriteLineAsync().ConfigureAwait(false);
@@ -175,11 +175,11 @@ public sealed class ContinuationWriter
 
 public sealed partial class ContinuationVerifier
 {
-    [GeneratedRegex(@"^<!-- GPT_SPLITTER_TURN (\d+) role=(user|assistant) -->$", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"^<!-- CONTINUITY_TURN (\d+) role=(user|assistant) -->$", RegexOptions.CultureInvariant)]
     private static partial Regex StartRegex();
     [GeneratedRegex(@"^## (User|Assistant) — Turn (\d+)$", RegexOptions.CultureInvariant)]
     private static partial Regex HeadingRegex();
-    [GeneratedRegex(@"^<!-- END_GPT_SPLITTER_TURN (\d+) -->$", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"^<!-- END_CONTINUITY_TURN (\d+) -->$", RegexOptions.CultureInvariant)]
     private static partial Regex EndRegex();
     [GeneratedRegex(@"^- Turn \d+ — \[(?:Uploaded image(?:: [^\]]+)?|Uploaded file: [^\]]+|Uploaded attachment reference|Audio attachment(?:: [^\]]+)?|Structured content: [^\]]+)\]$", RegexOptions.CultureInvariant)]
     private static partial Regex AttachmentRegex();
@@ -318,7 +318,7 @@ public sealed partial class ContinuationVerifier
             {
                 using var metadataDoc = JsonDocument.Parse(string.Join(Environment.NewLine, metadataLines));
                 var root = metadataDoc.RootElement;
-                metadataOk = GetString(root, "format") == "gpt-conversation-continuation-v1"
+                metadataOk = GetString(root, "format") == "llm-conversation-continuation-v1"
                     && GetString(root, "generated_by") == AppInfo.DisplayName
                     && GetString(root, "title") == row.Title
                     && GetString(root, "created") == row.Created

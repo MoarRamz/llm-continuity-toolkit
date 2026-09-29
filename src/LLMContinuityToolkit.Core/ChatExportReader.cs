@@ -2,7 +2,7 @@ using System.Diagnostics;
 using System.IO.Compression;
 using System.Text.Json;
 
-namespace GPTConversationSplitter.Core;
+namespace LLMContinuityToolkit.Core;
 
 public sealed class ChatExportReader
 {
@@ -43,7 +43,7 @@ public sealed class ChatExportReader
             if (metadata.HasUnsupportedVisibleContent)
             {
                 throw new InvalidDataException(
-                    $"Readable export is blocked for '{metadata.Title}' because its active transcript contains unsupported ChatGPT content type(s): "
+                    $"Readable export is blocked for '{metadata.Title}' because its active transcript contains unsupported OpenAI account content type(s): "
                     + string.Join(", ", metadata.UnsupportedVisibleContentTypes)
                     + ". Update the application before exporting this conversation so history is not silently omitted.");
             }
@@ -146,7 +146,7 @@ public sealed class ChatExportReader
             {
                 compatibility.DuplicateConversationIds++;
                 throw new InvalidDataException(
-                    $"Duplicate ChatGPT conversation ID '{stableSourceId}' was found. Import stopped because later lazy hydration would be ambiguous.");
+                    $"Duplicate OpenAI account conversation ID '{stableSourceId}' was found. Import stopped because later lazy hydration would be ambiguous.");
             }
 
             try
@@ -243,7 +243,7 @@ public sealed class ChatExportReader
                 FileOptions.Asynchronous | FileOptions.SequentialScan);
         }
 
-        _activity.Write("IMPORT", $"Opening ChatGPT export: {Path.GetFileName(sourcePath)}");
+        _activity.Write("IMPORT", $"Opening OpenAI account export: {Path.GetFileName(sourcePath)}");
         var zipStream = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.Read, 256 * 1024,
             FileOptions.Asynchronous | FileOptions.RandomAccess);
         ZipArchive? archive = null;
@@ -335,7 +335,7 @@ public sealed class ChatExportReader
             }
         }
 
-        throw new InvalidDataException("The JSON does not contain a recognized ChatGPT conversation collection.");
+        throw new InvalidDataException("The JSON does not contain a recognized OpenAI account conversation collection.");
     }
 
     private static bool LooksLikeConversation(JsonElement element)

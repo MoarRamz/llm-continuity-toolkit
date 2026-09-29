@@ -2,7 +2,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace GPTConversationSplitter.Core;
+namespace LLMContinuityToolkit.Core;
 
 internal static class TranscriptFingerprint
 {
@@ -29,7 +29,7 @@ internal static class TranscriptFingerprint
             {
                 NewLine = "\n"
             };
-            _writer.Write("gpt-conversation-splitter-visible-transcript-v1\n");
+            _writer.Write("continuity-visible-transcript-v2\n");
         }
 
         public void Append(int turn, string role, string text, double? createTime, int attachmentCount)

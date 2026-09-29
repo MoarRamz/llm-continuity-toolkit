@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace GPTConversationSplitter.Core;
+namespace LLMContinuityToolkit.Core;
 
 internal enum MessageDisposition
 {

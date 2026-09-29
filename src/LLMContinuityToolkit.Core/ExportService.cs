@@ -4,7 +4,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 
-namespace GPTConversationSplitter.Core;
+namespace LLMContinuityToolkit.Core;
 
 public sealed class ExportService
 {
@@ -31,7 +31,7 @@ public sealed class ExportService
             if (unsupported is not null)
             {
                 throw new InvalidDataException(
-                    $"Readable export is blocked for '{unsupported.Title}' because its active transcript contains unsupported ChatGPT content type(s): "
+                    $"Readable export is blocked for '{unsupported.Title}' because its active transcript contains unsupported OpenAI account content type(s): "
                     + string.Join(", ", unsupported.UnsupportedVisibleContentTypes)
                     + ". Update the application before exporting so history is not silently omitted.");
             }
@@ -62,7 +62,7 @@ public sealed class ExportService
                     VerifiedCount = verification.Verified ? 1 : 0,
                     AttachmentReferenceCount = verification.AttachmentReferences,
                     IsBundle = false,
-                    ContinuationPrompt = format == ExportFormat.GptContinuationMarkdown ? ContinuationPrompt.SingleFile : null,
+                    ContinuationPrompt = format == ExportFormat.ContinuationMarkdown ? ContinuationPrompt.SingleFile : null,
                     Elapsed = watch.Elapsed
                 };
             }
@@ -82,7 +82,7 @@ public sealed class ExportService
             VerifiedCount = bundle.VerifiedCount,
             AttachmentReferenceCount = bundle.AttachmentReferences,
             IsBundle = true,
-            ContinuationPrompt = format == ExportFormat.GptContinuationMarkdown ? ContinuationInstructions.ForBundle(conversations.Count) : null,
+            ContinuationPrompt = format == ExportFormat.ContinuationMarkdown ? ContinuationInstructions.ForBundle(conversations.Count) : null,
             Elapsed = watch.Elapsed
         };
     }
@@ -108,7 +108,7 @@ public sealed class ExportService
             if (format == ExportFormat.CompleteJson)
             {
                 if (string.IsNullOrWhiteSpace(sourcePath))
-                    throw new InvalidOperationException("The original ChatGPT export is required for Complete JSON export.");
+                    throw new InvalidOperationException("The original OpenAI account export is required for Complete JSON export.");
 
                 var prepared = new List<(ConversationRecord Row, string Path)>(conversations.Count);
                 var requests = new List<RawJsonExportRequest>(conversations.Count);
@@ -177,7 +177,7 @@ public sealed class ExportService
 
             string? instructionsFile = null;
             string? expectedInstructions = null;
-            if (format == ExportFormat.GptContinuationMarkdown)
+            if (format == ExportFormat.ContinuationMarkdown)
             {
                 instructionsFile = "00 - READ ME FIRST - Continuation Instructions.txt";
                 expectedInstructions = ContinuationInstructions.BuildBundleReadMe(conversations.Count, generatedAt);
@@ -203,7 +203,7 @@ public sealed class ExportService
                 new UTF8Encoding(false),
                 cancellationToken).ConfigureAwait(false);
 
-            var stem = format == ExportFormat.GptContinuationMarkdown ? "LLM_Continuity_Bundle" : "LLM_Conversation_Bundle";
+            var stem = format == ExportFormat.ContinuationMarkdown ? "LLM_Continuity_Bundle" : "LLM_Conversation_Bundle";
             var finalName = $"{stem}_{generatedAt:yyyy-MM-dd_HHmmss}.zip";
             var finalPath = FileNameUtil.UniquePath(Path.Combine(destinationFolder, finalName));
             var tempZip = Path.Combine(destinationFolder, $".llm-continuity-{Guid.NewGuid():N}.tmp");
@@ -257,7 +257,7 @@ public sealed class ExportService
     {
         switch (format)
         {
-            case ExportFormat.GptContinuationMarkdown:
+            case ExportFormat.ContinuationMarkdown:
                 await _continuationWriter.WriteAsync(path, row, cancellationToken).ConfigureAwait(false);
                 var result = await _continuationVerifier.VerifyAsync(path, row, cancellationToken).ConfigureAwait(false);
                 _activity.Write("VERIFY", $"{row.Title}: {row.MessageCount}/{row.MessageCount} turns verified; structural + handoff integrity passed.", ActivityLevel.Success);
@@ -274,7 +274,7 @@ public sealed class ExportService
                 break;
             case ExportFormat.CompleteJson:
                 if (string.IsNullOrWhiteSpace(sourcePath))
-                    throw new InvalidOperationException("The original ChatGPT export is required for Complete JSON export.");
+                    throw new InvalidOperationException("The original OpenAI account export is required for Complete JSON export.");
                 await RawJsonExporter.ExportConversationAsync(
                     sourcePath,
                     row.Id,
@@ -320,11 +320,11 @@ public sealed class ExportService
 
     private static string BuildOutputFileName(ConversationRecord row, ExportFormat format)
     {
-        var suffix = format == ExportFormat.GptContinuationMarkdown ? " - Continuation" : string.Empty;
+        var suffix = format == ExportFormat.ContinuationMarkdown ? " - Continuation" : string.Empty;
         var stem = FileNameUtil.SafeFileName($"{TimestampUtil.DatePrefix(row.CreateTimeRaw)} - {row.Title}{suffix}");
         var extension = format switch
         {
-            ExportFormat.GptContinuationMarkdown or ExportFormat.Markdown => ".md",
+            ExportFormat.ContinuationMarkdown or ExportFormat.Markdown => ".md",
             ExportFormat.Html => ".html",
             ExportFormat.PlainText => ".txt",
             ExportFormat.CompleteJson => ".json",
@@ -335,7 +335,7 @@ public sealed class ExportService
 
     private static string FormatLabel(ExportFormat format) => format switch
     {
-        ExportFormat.GptContinuationMarkdown => "Continuation Markdown (.md) — Recommended",
+        ExportFormat.ContinuationMarkdown => "Continuation Markdown (.md) — Recommended",
         ExportFormat.Markdown => "Markdown (.md)",
         ExportFormat.Html => "HTML (.html)",
         ExportFormat.PlainText => "Plain text (.txt)",

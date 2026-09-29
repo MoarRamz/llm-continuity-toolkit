@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using System.Runtime;
 
-namespace GPTConversationSplitter.Core;
+namespace LLMContinuityToolkit.Core;
 
 public static class OperationMemory
 {

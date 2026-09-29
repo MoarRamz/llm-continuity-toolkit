@@ -1,4 +1,4 @@
-namespace GPTConversationSplitter.Core;
+namespace LLMContinuityToolkit.Core;
 
 public sealed class LazyConversationStore
 {

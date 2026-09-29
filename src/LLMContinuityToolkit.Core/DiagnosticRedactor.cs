@@ -1,6 +1,6 @@
 using System.Text.RegularExpressions;
 
-namespace GPTConversationSplitter.Core;
+namespace LLMContinuityToolkit.Core;
 
 public static class DiagnosticRedactor
 {
