@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: 'Immutable release tag to build (for example v2.3.0)'
+        description: 'Immutable release tag to build (for example v2.4.0)'
         required: true
-        default: 'v2.3.0'
+        default: 'v2.4.0'
         type: string
 
 concurrency:

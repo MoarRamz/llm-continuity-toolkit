@@ -67,7 +67,7 @@
             <StackPanel Grid.Row="4" Margin="0,0,0,22">
                 <TextBlock Text="Developer &amp; Independence" FontSize="15" FontWeight="SemiBold"/>
                 <TextBlock Margin="0,6,0,0" TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}">
-                    LLM Continuity Toolkit is developed and maintained by DevMoarRamz. This independent project is not affiliated with, sponsored by, or endorsed by OpenAI. OpenAI and LLM are trademarks of OpenAI.
+                    LLM Continuity Toolkit is developed and maintained by DevMoarRamz. This independent project is not affiliated with, sponsored by, or endorsed by OpenAI. References to OpenAI identify the supported export source and do not imply affiliation, sponsorship, or endorsement.
                 </TextBlock>
             </StackPanel>
 

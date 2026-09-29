@@ -69,7 +69,7 @@ internal static class ReleaseRegressionGuards
                 new ExportService(new ActivitySink())
                     .ExportAsync(rows, ExportFormat.ContinuationMarkdown, output, cancellationToken: cancelled.Token)
                     .GetAwaiter().GetResult();
-                throw new InvalidOperationException("Cancelled v2.3 bundle export unexpectedly completed.");
+                throw new InvalidOperationException("Cancelled current bundle export unexpectedly completed.");
             }
             catch (OperationCanceledException)
             {
@@ -80,8 +80,8 @@ internal static class ReleaseRegressionGuards
             after.ExceptWith(before);
             after.Remove(output);
 
-            Require(after.Count == 0, "Cancelled v2.3 export left a renamed staging directory behind.");
-            Require(!Directory.EnumerateFiles(output).Any(), "Cancelled v2.3 export left output or temporary files behind.");
+            Require(after.Count == 0, "Cancelled current export left a renamed staging directory behind.");
+            Require(!Directory.EnumerateFiles(output).Any(), "Cancelled current export left output or temporary files behind.");
         }
         finally
         {

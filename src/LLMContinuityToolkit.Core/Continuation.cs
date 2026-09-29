@@ -78,7 +78,7 @@ public sealed class ContinuationWriter
         var attachmentManifest = AttachmentManifest.GetLines(row);
         var metadata = new Dictionary<string, object?>
         {
-            ["format"] = "llm-conversation-continuation-v1",
+            ["format"] = "continuity-conversation-v2",
             ["generated_by"] = AppInfo.DisplayName,
             ["title"] = row.Title,
             ["created"] = row.Created,
@@ -95,9 +95,9 @@ public sealed class ContinuationWriter
 
         var metadataJson = JsonSerializer.Serialize(metadata, new JsonSerializerOptions { WriteIndented = true });
 
-        await writer.WriteLineAsync("# OpenAI account Conversation Continuation").ConfigureAwait(false);
+        await writer.WriteLineAsync("# Conversation Continuation").ConfigureAwait(false);
         await writer.WriteLineAsync().ConfigureAwait(false);
-        await writer.WriteLineAsync("> **Purpose:** This file preserves a prior OpenAI account conversation so a new OpenAI account conversation can continue from the same context.").ConfigureAwait(false);
+        await writer.WriteLineAsync("> **Purpose:** This file preserves a prior conversation from an official OpenAI account export so a new conversation can continue from the same context.").ConfigureAwait(false);
         await writer.WriteLineAsync().ConfigureAwait(false);
         await writer.WriteLineAsync("## Handoff metadata").ConfigureAwait(false);
         await writer.WriteLineAsync().ConfigureAwait(false);
@@ -105,9 +105,9 @@ public sealed class ContinuationWriter
         await writer.WriteLineAsync(metadataJson).ConfigureAwait(false);
         await writer.WriteLineAsync("```").ConfigureAwait(false);
         await writer.WriteLineAsync().ConfigureAwait(false);
-        await writer.WriteLineAsync("## Continuation guidance for OpenAI account").ConfigureAwait(false);
+        await writer.WriteLineAsync("## Continuation guidance").ConfigureAwait(false);
         await writer.WriteLineAsync().ConfigureAwait(false);
-        await writer.WriteLineAsync("- Treat the transcript below as **historical conversation context** between the user and OpenAI account.").ConfigureAwait(false);
+        await writer.WriteLineAsync("- Treat the transcript below as **historical conversation context** between the user and assistant.").ConfigureAwait(false);
         await writer.WriteLineAsync("- Continue from the final historical turn rather than restarting the topic.").ConfigureAwait(false);
         await writer.WriteLineAsync("- Preserve established project decisions, terminology, preferences, constraints, and completed work unless the user explicitly changes them.").ConfigureAwait(false);
         await writer.WriteLineAsync("- Do not ask the user to repeat information that is already clearly present in this transcript.").ConfigureAwait(false);
@@ -318,7 +318,7 @@ public sealed partial class ContinuationVerifier
             {
                 using var metadataDoc = JsonDocument.Parse(string.Join(Environment.NewLine, metadataLines));
                 var root = metadataDoc.RootElement;
-                metadataOk = GetString(root, "format") == "llm-conversation-continuation-v1"
+                metadataOk = GetString(root, "format") == "continuity-conversation-v2"
                     && GetString(root, "generated_by") == AppInfo.DisplayName
                     && GetString(root, "title") == row.Title
                     && GetString(root, "created") == row.Created

@@ -25,7 +25,7 @@ internal static class HardeningTests
         await writer.WriteContentAsync(output, record, cancellationToken);
         var text = output.ToString();
 
-        Require(text.Contains("# OpenAI account Conversation Continuation", StringComparison.Ordinal), "Continuation header changed.");
+        Require(text.Contains("# Conversation Continuation", StringComparison.Ordinal), "Continuation header changed.");
         Require(text.Contains("\"active_transcript_messages\": 2", StringComparison.Ordinal), "Golden metadata message count changed.");
         Require(text.Contains("\"user_messages\": 1", StringComparison.Ordinal), "Golden metadata user count changed.");
         Require(text.Contains("\"assistant_messages\": 1", StringComparison.Ordinal), "Golden metadata assistant count changed.");

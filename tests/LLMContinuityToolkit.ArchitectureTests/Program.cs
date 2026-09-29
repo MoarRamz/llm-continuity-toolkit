@@ -6,7 +6,7 @@ using System.Text.Json.Nodes;
 using LLMContinuityToolkit.Core;
 
 var failures = new List<string>();
-await RunAsync("streaming fingerprints preserve v2.1 canonical contract", TestFingerprintCompatibilityAsync);
+await RunAsync("streaming fingerprints preserve canonical fingerprint contract", TestFingerprintCompatibilityAsync);
 await RunAsync("lean metadata index matches eager parser and hydrates exactly", TestMetadataParityAsync);
 await RunAsync("single Complete JSON streams losslessly", TestSingleRawExportAsync);
 await RunAsync("multi Complete JSON batches one verified source scan", TestBatchRawExportAsync);
@@ -54,7 +54,7 @@ async Task TestFingerprintCompatibilityAsync()
         var record = indexed.Conversations.Single(row => row.Id == id);
         var oldCanonicalBytes = JsonSerializer.SerializeToUtf8Bytes(element);
         var expected = Convert.ToHexString(SHA256.HashData(oldCanonicalBytes)).ToLowerInvariant();
-        Assert(record.RawRecordFingerprint == expected, $"Streaming raw fingerprint changed the v2.1 canonical hash for {id}.");
+        Assert(record.RawRecordFingerprint == expected, $"Streaming raw fingerprint changed the canonical hash for {id}.");
         Assert(!string.IsNullOrWhiteSpace(record.TranscriptFingerprint), $"Transcript fingerprint missing for {id}.");
     }
 }
