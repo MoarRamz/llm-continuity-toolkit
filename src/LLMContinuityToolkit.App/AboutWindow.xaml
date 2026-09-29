@@ -1,0 +1,84 @@
+<Window x:Class="LLMContinuityToolkit.App.AboutWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="About LLM Continuity Toolkit"
+        Width="590"
+        SizeToContent="Height"
+        MinWidth="520"
+        MaxWidth="680"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False"
+        Background="{StaticResource WindowBackground}"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True"
+        AutomationProperties.Name="About LLM Continuity Toolkit">
+    <Border Padding="24">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <StackPanel Grid.Row="0" Margin="0,0,0,20">
+                <TextBlock Text="LLM Continuity Toolkit"
+                           FontSize="25"
+                           FontWeight="SemiBold"
+                           TextAlignment="Center"/>
+                <TextBlock x:Name="VersionText"
+                           Foreground="{StaticResource MutedBrush}"
+                           Margin="0,4,0,0"
+                           TextAlignment="Center"/>
+                <TextBlock Text="Developed by DevMoarRamz"
+                           Foreground="{StaticResource DisabledTextBrush}"
+                           FontSize="12"
+                           Margin="0,3,0,0"
+                           TextAlignment="Center"/>
+            </StackPanel>
+
+            <StackPanel Grid.Row="1" Margin="0,0,0,18">
+                <TextBlock Text="What is LLM Continuity Toolkit?" FontSize="15" FontWeight="SemiBold"/>
+                <TextBlock Margin="0,6,0,0" TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}">
+                    LLM Continuity Toolkit is a local Windows utility for reconstructing, preserving, archiving, and continuing conversations from official OpenAI data exports. It reconstructs the active conversation history, can create continuation-ready Markdown for carrying prior context into a new conversation, and can preserve complete original conversation records as JSON.
+                </TextBlock>
+            </StackPanel>
+
+            <StackPanel Grid.Row="2" Margin="0,0,0,18">
+                <TextBlock Text="Privacy by Design" FontSize="15" FontWeight="SemiBold"/>
+                <TextBlock Margin="0,6,0,0" TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}">
+                    Processing is performed locally on your computer. The application does not implement application telemetry, make network requests, maintain a conversation database or cache, run background services, include an updater, or require an online account. Operating-system or runtime crash reporting, if enabled in Windows, is controlled by Windows rather than by this application.
+                </TextBlock>
+            </StackPanel>
+
+            <StackPanel Grid.Row="3" Margin="0,0,0,18">
+                <TextBlock Text="Built With" FontSize="15" FontWeight="SemiBold"/>
+                <TextBlock Margin="0,6,0,0" TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}">
+                    C# • .NET 10 • Windows Presentation Foundation (WPF) • System.Text.Json • Git • GitHub • GitHub Actions
+                </TextBlock>
+                <TextBlock Margin="0,5,0,0" TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}">
+                    Development and engineering assistance provided with OpenAI.
+                </TextBlock>
+            </StackPanel>
+
+            <StackPanel Grid.Row="4" Margin="0,0,0,22">
+                <TextBlock Text="Developer &amp; Independence" FontSize="15" FontWeight="SemiBold"/>
+                <TextBlock Margin="0,6,0,0" TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}">
+                    LLM Continuity Toolkit is developed and maintained by DevMoarRamz. This independent project is not affiliated with, sponsored by, or endorsed by OpenAI. OpenAI and LLM are trademarks of OpenAI.
+                </TextBlock>
+            </StackPanel>
+
+            <Button Grid.Row="5"
+                    Content="Close"
+                    Width="92"
+                    HorizontalAlignment="Right"
+                    IsDefault="True"
+                    IsCancel="True"
+                    Click="CloseButton_Click"
+                    AutomationProperties.Name="Close About window"/>
+        </Grid>
+    </Border>
+</Window>
