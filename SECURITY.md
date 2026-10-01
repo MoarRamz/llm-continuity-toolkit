@@ -34,7 +34,7 @@ The Windows application manifest must remain `asInvoker`.
 
 Stable packages are built only from an explicit immutable semantic-version tag whose version matches `Directory.Build.props`. Release output includes per-file SHA-256 hashes, package SHA-256, provenance, the project license, and applicable Microsoft/.NET notice files.
 
-The project is currently unsigned with a public Authenticode certificate. Windows SmartScreen may therefore show an unknown-publisher/reputation warning for a fresh download. Do not disable SmartScreen globally; verify the published package hash before running the application.
+The project is not currently Authenticode-signed with a publicly trusted code-signing certificate. Windows SmartScreen may therefore show an unknown-publisher or reputation warning for a fresh download. Do not disable SmartScreen globally; verify the published package hash before running the application.
 
 ## Reporting
 
