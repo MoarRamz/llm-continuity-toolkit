@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.4.0 - Unreleased
+## 2.4.0 - 2026-10-01
 
 ### Repository identity and protocol
 - Completed the LLM Continuity Toolkit source-tree identity.
